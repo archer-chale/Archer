@@ -1,23 +1,21 @@
-version: '3.8'
-
 services:
-  AAPL:
+  aapl:
     build: .
-    container_name: AAPL
+    container_name: aapl
     environment:
       - TICKER=AAPL
-      - FIREBASE_CONFIG={"placeholder": "config_AAPL"}
+      - FIREBASE_CONFIG=
 
-  GOOG:
+  meta:
     build: .
-    container_name: META
+    container_name: meta
     environment:
       - TICKER=META
-      - FIREBASE_CONFIG={"placeholder": "config_META"}
+      - FIREBASE_CONFIG=
 
-  AMZN:
+  amzn:
     build: .
-    container_name: AMZN
+    container_name: amzn
     environment:
       - TICKER=AMZN
-      - FIREBASE_CONFIG={"placeholder": "config_AMZN"}
+      - FIREBASE_CONFIG=

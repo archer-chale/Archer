@@ -12,4 +12,3 @@ def run_counter_bot(service_id):
             time.sleep(1)  # simulate work by waiting 1 second
     except KeyboardInterrupt:
         logging.info(f"Counter bot for service {service_id} interrupted and stopping.")
-``
