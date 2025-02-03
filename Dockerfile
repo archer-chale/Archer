@@ -5,8 +5,13 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the service account key first (this should be in .dockerignore for security)
+COPY adminsdk.json ./
+
 # Copy the rest of the source code
 COPY . .
 
-# Command to run the service with basic logging
-CMD ["python", "main.py"]
+# Set the entrypoint to run the service with a ticker argument
+ENTRYPOINT ["python", "service.py"]
+# Default ticker if none provided
+CMD ["AAPL"]
