@@ -1,58 +1,46 @@
 import { 
-    Accordion, 
-    AccordionSummary, 
-    AccordionDetails, 
-    Typography, 
-    Grid, 
-    Chip,
-    Avatar,
-    List,
-    ListItem,
-    ListItemText,
-    ListItemAvatar,
-    CircularProgress,
-    IconButton,
-    Fab
-  } from '@mui/material';
-  import {
-    ExpandMore,
-    Add,
-    TrendingUp,
-    PauseCircleOutline,
-    PlayCircleOutline,
-    Settings
-  } from '@mui/icons-material';
-  
-  const services = [
-    { 
-      ticker: 'AAPL', 
-      status: 'running', 
-      bots: [
-        { id: 1, count: 142, status: 'active' },
-        { id: 2, count: 89, status: 'paused' }
-      ]
-    },
-    { 
-      ticker: 'META', 
-      status: 'paused', 
-      bots: [
-        { id: 1, count: 256, status: 'active' }
-      ]
-    },
-    { 
-      ticker: 'AMZN', 
-      status: 'stopped', 
-      bots: []
-    }
-  ];
-  
-  const statusColor = {
-    running: 'success',
-    paused: 'warning',
-    stopped: 'error'
-  } as const;
-  
-  const Dashboard = () => (
+  Accordion, 
+  AccordionDetails, 
+  AccordionSummary, 
+  Chip,
+  Grid, 
+  Typography,
+  CircularProgress,
+  Alert
+} from '@mui/material';
+import { ExpandMore, TrendingUp } from '@mui/icons-material';
+import { useFirebaseServices } from '../hooks/useFirebaseServices';
+
+// Status color mapping
+const statusColors = {
+  running: 'success',
+  paused: 'warning',
+  stopped: 'error',
+  active: 'success'
+} as const;
+
+const Dashboard = () => {
+  const { services, loading, error } = useFirebaseServices();
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: '2rem' }}>
+        <Alert severity="error">
+          Error loading services: {error}
+        </Alert>
+      </div>
+    );
+  }
+
+  return (
     <div style={{
       padding: '2rem',
       width: '100%',
@@ -69,6 +57,7 @@ import {
             mb: 4,
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: 2
           }}>
             <TrendingUp fontSize="large" />
@@ -89,55 +78,44 @@ import {
               <AccordionSummary expandIcon={<ExpandMore />}>
                 <Grid container alignItems="center" spacing={2}>
                   <Grid item>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>
-                      {service.ticker[0]}
-                    </Avatar>
-                  </Grid>
-                  <Grid item xs>
                     <Typography variant="h6">{service.ticker}</Typography>
                   </Grid>
                   <Grid item>
                     <Chip 
-                      label={service.status}
-                      color={statusColor[service.status]}
-                      variant="outlined"
+                      label={service.status} 
+                      color={statusColors[service.status]} 
+                      size="small" 
                     />
                   </Grid>
                 </Grid>
               </AccordionSummary>
-
+              
               <AccordionDetails>
-                {service.bots.length > 0 ? (
-                  <List dense>
-                    {service.bots.map((bot) => (
-                      <ListItem 
-                        key={bot.id}
-                        secondaryAction={
-                          <IconButton edge="end">
-                            <Settings />
-                          </IconButton>
-                        }
-                      >
-                        <ListItemAvatar>
-                          <CircularProgress 
-                            variant="determinate" 
-                            value={Math.min((bot.count % 100), 100)}
-                            size={32}
-                            thickness={4}
-                          />
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={`Bot #${bot.id}`}
-                          secondary={`Count: ${bot.count} • ${bot.status}`}
+                <Grid container spacing={2}>
+                  {service.bots && Object.entries(service.bots).map(([botId, bot]) => (
+                    <Grid item xs={12} key={botId}>
+                      <Typography variant="body1">
+                        Bot {botId}: {bot.count} trades
+                        <Chip 
+                          label={bot.status}
+                          color={statusColors[bot.status]}
+                          size="small"
+                          sx={{ ml: 1 }}
                         />
-                      </ListItem>
-                    ))}
-                  </List>
-                ) : (
-                  <Typography color="textSecondary" align="center">
-                    No active bots
-                  </Typography>
-                )}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Last updated: {new Date(bot.last_updated).toLocaleString()}
+                      </Typography>
+                    </Grid>
+                  ))}
+                  {(!service.bots || Object.keys(service.bots).length === 0) && (
+                    <Grid item xs={12}>
+                      <Typography color="text.secondary">
+                        No active bots
+                      </Typography>
+                    </Grid>
+                  )}
+                </Grid>
               </AccordionDetails>
             </Accordion>
           </Grid>
@@ -145,5 +123,6 @@ import {
       </Grid>
     </div>
   );
-  
-  export default Dashboard;
+};
+
+export default Dashboard;

@@ -1,21 +1,63 @@
+version: '3.8'
+
 services:
-  aapl:
-    build: .
-    container_name: aapl
-    environment:
-      - TICKER=AAPL
-      - FIREBASE_CONFIG=
+  # Trading Bot Services
+  aapl-bot:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: aapl-bot
+    command: AAPL
+    volumes:
+      - ./adminsdk.json:/app/adminsdk.json:ro
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  meta:
-    build: .
-    container_name: meta
-    environment:
-      - TICKER=META
-      - FIREBASE_CONFIG=
+  meta-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meta-bot
+    command: META
+    volumes:
+      - ./adminsdk.json:/app/adminsdk.json:ro
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  amzn:
-    build: .
-    container_name: amzn
-    environment:
-      - TICKER=AMZN
-      - FIREBASE_CONFIG=
+  amzn-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: amzn-bot
+    command: AMZN
+    volumes:
+      - ./adminsdk.json:/app/adminsdk.json:ro
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  msft-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: MSFT-bot
+    command: MSFT
+    volumes:
+      - ./adminsdk.json:/app/adminsdk.json:ro
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
