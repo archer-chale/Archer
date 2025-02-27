@@ -4,6 +4,7 @@ from firebase_admin import credentials
 from firebase_admin import db
 import os
 from datetime import datetime
+from config import load_config
 
 # Configure logging with timestamp
 logging.basicConfig(
@@ -11,11 +12,13 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
+config = load_config()
+
 def initialize_firebase():
     try:
-        cred = credentials.Certificate("adminsdk.json")
-        firebase_admin.initialize_app(cred, {
-            'databaseURL': 'https://candlelyt-prince-default-rtdb.firebaseio.com'  # Replace with your database URL
+        cred = credentials.Certificate("configs/adminsdk.json")
+        out = firebase_admin.initialize_app(cred, {
+            'databaseURL': config.get("databaseURL")
         })
         logging.info("Firebase initialized successfully")
     except Exception as e:

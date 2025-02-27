@@ -2,6 +2,11 @@
 
 ## Running the Docker Compose
 
+Requires
+- adminsdk.json from firebase project credentials
+- create a firestore database and store the databaseURL in configs/config.json
+
+
 To run the docker-compose:
 ```sh
 docker-compose up --build -d 

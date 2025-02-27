@@ -6,7 +6,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the service account key first (this should be in .dockerignore for security)
-COPY adminsdk.json ./
+COPY configs/adminsdk.json ./
 
 # Copy the rest of the source code
 COPY . .

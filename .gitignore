@@ -2,6 +2,10 @@
 adminsdk.json
 **/firebaseConfig.ts
 
+# configs
+configs/*
+!configs/*template.json
+
 # dependencies
 /node_modules
 **/node_modules
