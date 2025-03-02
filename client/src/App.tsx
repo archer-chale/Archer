@@ -1,4 +1,4 @@
-import Dashboard from './components/Dashboard';
+import AppRouter from './routes';
 
 function App() {
   return (
@@ -7,7 +7,7 @@ function App() {
       minHeight: '100vh',
       backgroundColor: '#f8f9fa'
     }}>
-      <Dashboard />
+      <AppRouter />
     </div>
   );
 }
