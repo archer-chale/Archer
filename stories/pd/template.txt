@@ -1,0 +1,12 @@
+What is the user story?
+Why do we want to solve this user story ?
+
+Frontend Questions
+whay page do we need to modify and what needs to be done?
+What components do we need to modify and what needs to be done?
+What hook do we need to modify and what needs to be done?
+What service do we need to modify, why and what needs to be done?
+what controllers do we need to modify, why and what needs to be done ?
+
+
+Backend Questions

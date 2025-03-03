@@ -29,7 +29,7 @@ const statusColors = {
 } as const;
 
 const Dashboard = () => {
-  const { services, loading, error } = useFirebaseServices();
+  const { services, loading, error, sendMessage } = useFirebaseServices();
   
   // State for the global message form
   const [globalMessage, setGlobalMessage] = useState('');
@@ -44,11 +44,16 @@ const Dashboard = () => {
    * Handles submission of a global message to all bots
    * Uses the Firebase service to send a message to all bots
    */
-  const handleSendGlobalMessage = () => {
+  const handleSendGlobalMessage = async () => {
     if (globalMessage.trim()) {
-      // TODO: Replace with actual send message functionality
-      alert(`Sending to ALL bots: ${globalMessage}`);
-      setGlobalMessage('');
+      const success = await sendMessage(globalMessage, "ALL");
+      
+      if (success) {
+        setGlobalMessage('');
+      } else {
+        // TODO: Add error handling UI
+        alert('Failed to send message to all bots');
+      }
     }
   };
 
@@ -77,11 +82,16 @@ const Dashboard = () => {
    * Handles submission of a message to a specific bot
    * Uses the Firebase service to send a message to the selected bot
    */
-  const handleSendBotMessage = () => {
+  const handleSendBotMessage = async () => {
     if (botMessage.trim() && selectedBotId && selectedTicker) {
-      // TODO: Replace with actual send message functionality
-      alert(`Sending to ${selectedTicker}/${selectedBotId}: ${botMessage}`);
-      handleCloseDialog();
+      const success = await sendMessage(botMessage, selectedTicker);
+      
+      if (success) {
+        handleCloseDialog();
+      } else {
+        // TODO: Add error handling UI
+        alert(`Failed to send message to ${selectedTicker}`);
+      }
     }
   };
 
@@ -111,7 +121,7 @@ const Dashboard = () => {
     }}>
       <Grid container spacing={2} sx={{
         width: '100%',
-        maxWidth: 1200,
+        maxWidth: { xs: '100%', lg: 1200 },
         margin: '0 auto',
         justifyContent: 'center'
       }}>
@@ -137,10 +147,13 @@ const Dashboard = () => {
               flexDirection: { xs: 'column', sm: 'row' },
               alignItems: 'center',
               gap: 2,
-              p: 2,
+              p: { xs: 1.5, sm: 2 },
               backgroundColor: 'white',
               borderRadius: 2,
               boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              width: '100%',
+              boxSizing: 'border-box',
+              overflow: 'hidden'
             }}
             onSubmit={(e) => {
               e.preventDefault();

@@ -1,53 +1,47 @@
 import { useState, useEffect } from 'react';
-import { ref, onValue } from 'firebase/database';
-import { db } from '../firebaseConfig';
+import { Service } from '../service/firebase/firebase-endpoint.service';
+import { firebaseServiceController } from '../service/controllers/firebase.service.controller';
 
-export interface Bot {
-  id: string;
-  count: number;
-  status: 'active' | 'paused';
-  last_updated: string;
-}
-
-export interface Service {
-  ticker: string;
-  status: 'running' | 'paused' | 'stopped';
-  bots: Record<string, Bot>;
-}
-
+/**
+ * Custom hook for accessing Firebase services
+ * Provides real-time updates of service status and bots
+ */
 export const useFirebaseServices = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const servicesRef = ref(db, 'services');
+    try {
+      // Subscribe to services using the controller
+      const unsubscribe = firebaseServiceController.getServices((servicesData) => {
+        setServices(servicesData);
+        setLoading(false);
+      });
 
-    const unsubscribe = onValue(servicesRef, (snapshot) => {
-      try {
-        const data = snapshot.val();
-        if (data) {
-          const servicesArray = Object.entries(data).map(([ticker, serviceData]) => ({
-            ticker,
-            ...serviceData as Omit<Service, 'ticker'>
-          }));
-          setServices(servicesArray);
-        } else {
-          setServices([]);
-        }
-        setLoading(false);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error occurred');
-        setLoading(false);
-      }
-    }, (error) => {
-      setError(error.message);
+      // Cleanup subscription
+      return () => unsubscribe();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error occurred');
       setLoading(false);
-    });
-
-    // Cleanup subscription
-    return () => unsubscribe();
+      return () => {}; // Empty cleanup if setup failed
+    }
   }, []);
 
-  return { services, loading, error };
+  /**
+   * Send a message to a specific bot or all bots
+   * @param message - Message content
+   * @param target - Target container ID or "ALL" for all bots
+   * @returns Promise resolving to true if successful
+   */
+  const sendMessage = async (message: string, target: string): Promise<boolean> => {
+    try {
+      return await firebaseServiceController.sendMessage(message, target);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      return false;
+    }
+  };
+
+  return { services, loading, error, sendMessage };
 };

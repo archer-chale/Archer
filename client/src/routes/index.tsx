@@ -51,6 +51,7 @@ const Navigation = () => {
    */
   const drawerContent = (
     <Box sx={{ width: 250 }}>
+      <Toolbar /> {/* Empty toolbar to push content below AppBar */}
       <List>
         <ListItem disablePadding>
           <ListItemButton 
@@ -85,68 +86,77 @@ const Navigation = () => {
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
-      <AppBar position="fixed" sx={{ zIndex: theme.zIndex.drawer + 1 }}>
+      <AppBar position="fixed">
         <Toolbar>
-          {isMobile && (
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ mr: 2 }}
-            >
-              <Menu />
-            </IconButton>
-          )}
-          <Typography variant="h6" noWrap component="div">
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={handleDrawerToggle}
+            sx={{ mr: 2, display: { md: 'none' } }}
+          >
+            <Menu />
+          </IconButton>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Trading Bot System
           </Typography>
+          
+          {/* Desktop horizontal navigation */}
+          {!isMobile && (
+            <Box sx={{ display: 'flex' }}>
+              <Box 
+                component={Link} 
+                to="/"
+                sx={{
+                  color: 'white',
+                  textDecoration: 'none',
+                  mx: 2,
+                  fontWeight: isActive('/') ? 'bold' : 'normal',
+                  borderBottom: isActive('/') ? '2px solid white' : 'none',
+                }}
+              >
+                Dashboard
+              </Box>
+              <Box 
+                component={Link} 
+                to="/logs"
+                sx={{
+                  color: 'white',
+                  textDecoration: 'none',
+                  mx: 2,
+                  fontWeight: isActive('/logs') ? 'bold' : 'normal',
+                  borderBottom: isActive('/logs') ? '2px solid white' : 'none',
+                }}
+              >
+                Logs
+              </Box>
+            </Box>
+          )}
         </Toolbar>
       </AppBar>
 
       {/* Mobile drawer */}
-      {isMobile && (
-        <Drawer
-          variant="temporary"
-          open={drawerOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{ keepMounted: true }}
-          sx={{
-            '& .MuiDrawer-paper': { 
-              boxSizing: 'border-box', 
-              width: 250 
-            },
-          }}
-        >
-          {drawerContent}
-        </Drawer>
-      )}
-
-      {/* Desktop drawer - always visible */}
-      {!isMobile && (
-        <Drawer
-          variant="permanent"
-          sx={{
-            width: 250,
-            flexShrink: 0,
-            '& .MuiDrawer-paper': {
-              width: 250,
-              boxSizing: 'border-box',
-            },
-          }}
-          open
-        >
-          <Toolbar /> {/* Empty toolbar to push content below AppBar */}
-          {drawerContent}
-        </Drawer>
-      )}
+      <Drawer
+        variant="temporary"
+        open={drawerOpen}
+        onClose={handleDrawerToggle}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 250 },
+          zIndex: theme.zIndex.drawer + 2
+        }}
+      >
+        {drawerContent}
+      </Drawer>
 
       {/* Main content */}
       <Box component="main" sx={{ 
         flexGrow: 1, 
-        p: 3,
-        width: { sm: `calc(100% - ${250}px)` },
-        marginLeft: { sm: '250px' }
+        p: { xs: 2, md: 3 },
+        width: '100%',
+        overflow: 'hidden',
+        maxWidth: '100vw',
       }}>
         <Toolbar /> {/* Empty toolbar to push content below AppBar */}
         <Routes>
