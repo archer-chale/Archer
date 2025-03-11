@@ -1,0 +1,40 @@
+What is the user story ?
+- As a user I should be able to communicate with the bots that are running in my docker containers
+
+Why must we complete this user story?
+We need a way to be able to communicate with the trading bots to make adjustment like money management, exit trades etc
+
+What is the user flow?
+- User opens the client site on their phone
+- Sees that a bot needs to be stopped right away
+- The user fills out a stop request for 2 bots for 2 different stocks, the stocks are (AAPL, META)
+- When creating a message the user has the option to send the message to all of the bots or only a selected few, the user wants the rest of the bots to run so they select a few
+- The message is sent to a firebase function
+- The function saves the message in the database called - pubsub-messages
+- There is firebase function listener that listens for new pubsub-messages that are saved, the function takes the messages and forwards it to a pubsub where all running bots are subscribed to
+- The pubsub messages gets picked up by a bot that is running a GOOGL stock, the bot checks if the message is for it, no it is not, checks if the message is for "ALL" no it is not so it sends an ignore message to the firebase function.
+- The message gets picked up by AAPL, checks if the message is for it's ticker, yes it is, check for the type of message and it sees that it is to stop trading, so it stops trading right away
+- Once it is done, it calls a backend function to acknowlege the message
+- This acknowlegement is saved in the pub-message array of acknowlegement with the id of the containers that acted on the message
+- The META bot docker does the same
+- The acknowlegement is used for debugging
+- So the user goes to the page logs on their phone and sees all of the messages they have sent before
+- Opens the recent message they sent and is able to see that both AAPL and META bots have acknowleged that they have completed the task
+- In the message the user can also see that GOOGL is in the list of ignored or error - this is used for debugging so that the user can know that if there are any issues with the trading bots ignoring their message or if there is any error. This will help the user act if the bot is not able to complete the trade for them
+
+
+Implementation plans:
+client - this is the frontend application the user has access to on their phone and will allow the user to see what is running
+- client\src\hooks
+- client\src\pages
+- client\src\service\controllers
+- client\src\service\firebase
+
+Firebase Function - This is where we will create the endpoints and the firebase listeners
+firebase\functions\src\index.ts - this is where we will have all of the 
+
+
+Docker bots - These files run in the docker container and the bots have access to these service
+- firebase_client.py - This will be the service where the bots will be able to communicate with the firebase service and backend
+- service.py - This is the start of the service of the bot
+- counter_bot.py - This is the test counter_bot that will get the pubsub message and acknowlege it
