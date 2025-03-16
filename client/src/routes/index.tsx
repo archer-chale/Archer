@@ -76,7 +76,7 @@ const Navigation = () => {
             <ListItemIcon>
               <Assessment />
             </ListItemIcon>
-            <ListItemText primary="Logs" />
+            <ListItemText primary="Messages" />
           </ListItemButton>
         </ListItem>
       </List>
@@ -119,16 +119,16 @@ const Navigation = () => {
               </Box>
               <Box 
                 component={Link} 
-                to="/logs"
+                to="/messages"
                 sx={{
                   color: 'white',
                   textDecoration: 'none',
                   mx: 2,
-                  fontWeight: isActive('/logs') ? 'bold' : 'normal',
-                  borderBottom: isActive('/logs') ? '2px solid white' : 'none',
+                  fontWeight: isActive('/messages') ? 'bold' : 'normal',
+                  borderBottom: isActive('/messages') ? '2px solid white' : 'none',
                 }}
               >
-                Logs
+                Messages
               </Box>
             </Box>
           )}
