@@ -129,3 +129,42 @@ Docker bots - These files run in the docker container and the bots have access t
 - counter_bot.py - This is the test counter_bot that will get the pubsub message and acknowlege it
 
 For now we simple want to log the messages to make sure it is working as expected before we act on the messages and acknowleging it
+
+
+Client-Side Implementation Questions:
+- For the IConfigMessage interface, the config field is left as a generic object for now. For your POC, what specific properties will be included in this object? Will it just contain startCountAt for the counter bot?
+for now we will just have startCountAt will be fone
+
+- In the useMessage.hook.ts, will you need any real-time subscription to message acknowledgments, or will refreshing the details view be sufficient?
+- Yah let's have a real-time subscription to the database 
+
+- For the message creation dialog, what validation rules should be applied? (e.g., requiring at least one target when type is "SELECTED")
+- Yes requiring at least one target to be selected when "SELECTED" is picked but empty list when "ALL" is selected
+
+- For the routes.path.ts implementation, will you be adding any new routes beyond what currently exists?
+- No new routes
+
+Firebase Function Questions:
+When acknowledging a message, will there be any status tracking beyond just the bot ID (such as success/failure flags)?
+- For now the ID will be fine
+
+For messages that bots ignore, will you be storing that information separately, or just tracking acknowledgments?
+- No storing for ignoring
+
+Will there be any rate limiting or message prioritization in the pub/sub system?
+- No let;'s keep it as simple as possible
+
+Docker Bot Implementation Questions:
+- How will you handle a scenario where a bot receives a message but crashes before acknowledging it?
+ - No acknowledging, the owner will be able to see that the bot was not able to get the message
+- Will there be any authentication mechanism between the bots and Firebase functions?
+- This has already been set where the bots have access to the firebase using adminsdk.json
+- How do you plan to test this system end-to-end? Will you create a dedicated testing environment?
+ - We will test in production where we save a message and see how the bots respond
+General Architecture Questions:
+- I noticed you previously implemented Firebase endpoint services. How will the new message service integrate with the existing Firebase infrastructure?
+- Yes to keep thing separately we will have another firebase functions just for messages
+- Do you have a timeline for when you plan to move beyond the POC implementation to a more robust configuration system?
+- For now this is out of scope, no timeline worry needed 
+- Is there any specific monitoring or logging you want to implement to track the health of this pub/sub system?
+- No for now let's keep things simple

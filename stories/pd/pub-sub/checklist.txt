@@ -1,0 +1,113 @@
+1. Create Type Definitions
+File: client/src/types/pubsubmessage.type.ts Why: Define the data structures that will be used throughout the application for consistency.
+⦁	Create IMessageTarget interface for defining message recipients (ALL or SELECTED)
+⦁	Create IMessageConfig interface for the counter bot configuration
+⦁	Create IConfigMessage and IConfigMessageSimple interfaces as specified in requirements
+Please ask questions to clarify to make sure we are both on the same page
+
+2. Create Routes Path Constants
+File: client/src/routes/routes.path.ts (new file) Why: Centralize route definitions to make navigation consistent and updates easier.
+⦁	Define constants for existing routes (DASHBOARD, MESSAGES)
+⦁	Will make future route changes simpler to implement
+Please ask questions to clarify to make sure we are both on the same page
+
+3. Update Messages Page
+File: client/src/pages/Messages/index.tsx Why: Transform the current Logs page into the Message management interface.
+⦁	Replace useFirebaseLogs with mock data initially
+⦁	Add "New Message" button
+⦁	Add state for controlling create message dialog
+⦁	Add basic layout structure for the page
+Please ask questions to clarify to make sure we are both on the same page
+
+4. Create Message Components
+Files:
+⦁	client/src/pages/Messages/components/createMessageDialog.component.tsx (new file)
+⦁	client/src/pages/Messages/components/viewAllMessages.component.tsx (new file)
+⦁	client/src/pages/Messages/components/messageCard.component.tsx (new file)
+Why: Split the UI into modular, reusable components that handle specific tasks.
+⦁	createMessageDialog: Form for creating new messages with validation
+⦁	viewAllMessages: Table displaying all messages
+⦁	messageCard: Expandable card showing message details and acknowledgments
+Please ask questions to clarify to make sure we are both on the same page
+
+
+5. Update Dashboard Page
+File: client/src/pages/Dashboard/index.tsx Why: Remove message sending functionality as it will now be handled by the Messages page.
+⦁	Remove state and handlers related to message sending
+⦁	Remove UI elements for sending messages
+⦁	Keep service monitoring functionality
+Please ask questions to clarify to make sure we are both on the same page
+
+
+6. Create Mock Hook for Messages
+File: client/src/hooks/useMessage.hook.ts (new file) Why: Create a hook with mock data for UI development before implementing backend.
+⦁	Implement mock functions for saveMessage, getAllMessages, getMessageDetailsById
+⦁	Add state for messages, loading, and errors
+⦁	Simulate asynchronous behavior
+Phase 2: Backend Integration
+Please ask questions to clarify to make sure we are both on the same page
+
+
+7. Create Firebase Message Service
+File: client/src/service/firebase/message.service.firebase.ts (new file) Why: Implement Firebase database interactions for storing and retrieving messages.
+⦁	Create CRUD functions for messages
+⦁	Implement real-time listeners for message updates
+⦁	Handle error cases and validation
+Please ask questions to clarify to make sure we are both on the same page
+
+
+8. Create Message Service Controller
+File: client/src/service/controllers/message.service.controller.ts (new file) Why: Create an intermediate layer between UI and Firebase for better separation of concerns.
+⦁	Add validation logic
+⦁	Handle error messages
+⦁	Provide clean API for components
+Please ask questions to clarify to make sure we are both on the same page
+
+
+9. Update Message Hook with Real Implementation
+File: client/src/hooks/useMessage.hook.ts Why: Replace mock implementations with real Firebase service calls.
+⦁	Update functions to use the message service controller
+⦁	Maintain same interface so UI components don't need to change
+⦁	Add proper error handling and loading states
+Please ask questions to clarify to make sure we are both on the same page
+
+
+10. Firebase Function Implementation
+Files:
+⦁	firebase/functions/src/message/message.database.ts (new file)
+⦁	firebase/functions/src/message/message.listener.ts (new file)
+⦁	firebase/functions/src/index.ts
+Why: Implement server-side functionality for message processing and pub/sub.
+⦁	Create database functions for storing and retrieving messages
+⦁	Implement listener for new messages to forward to pub/sub
+⦁	Update main index to expose new functions
+Please ask questions to clarify to make sure we are both on the same page
+
+
+11. Docker Bot Implementation
+Files:
+⦁	message_firebase_client.py (new file)
+⦁	service.py
+⦁	counter_bot.py
+Why: Enable bots to receive and process messages.
+⦁	Create client for listening to messages
+⦁	Update counter bot to process configuration messages
+⦁	Add acknowledgment functionality
+Please ask questions to clarify to make sure we are both on the same page
+
+
+Phase 3: Testing and Refinement
+12. End-to-End Testing
+Why: Verify that the entire system works as expected.
+⦁	Test message creation and validation
+⦁	Test acknowledgment flow
+⦁	Test target filtering (ALL vs. SELECTED)
+Please ask questions to clarify to make sure we are both on the same page
+
+
+13. UI Polishing
+Why: Improve user experience with better feedback and interactions.
+⦁	Add confirmation dialogs for destructive actions
+⦁	Improve loading states and error messages
+⦁	Ensure responsive design works on mobile
+Please ask questions to clarify to make sure we are both on the same page
