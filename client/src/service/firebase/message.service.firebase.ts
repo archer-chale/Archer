@@ -1,42 +1,60 @@
-import { ref, onValue, push, set, get, remove, update, query, orderByChild } from 'firebase/database';
+import { ref, onValue } from 'firebase/database';
+import { 
+  collection, 
+  addDoc, 
+  deleteDoc, 
+  doc, 
+  onSnapshot, 
+  query, 
+  orderBy,
+  serverTimestamp,
+  getFirestore
+} from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
-import { IConfigMessage, IConfigMessageSimple } from '../../types/pubsubmessage.type';
+import { firestore } from '../../firebaseConfig';
+import { v4 as uuidv4 } from 'uuid';
+import { IConfigMessage } from '../../types/pubsubmessage.type';
 
 /**
- * Firebase service for interacting with messages in the Firebase database
- * Provides methods to create, read, update, and delete messages
+ * Firebase service for managing messages
  */
 class MessageServiceFirebase {
+  private readonly MESSAGES_COLLECTION = 'messages';
   private readonly MESSAGES_REF = 'messages';
 
   /**
-   * Save a new message to the Firebase database
-   * @param message - The message to save (without id, acknowledgement, and acknowledgementCount)
-   * @returns Promise resolving to the saved message with id
+   * Save a new message to Firestore
+   * @param message - The message to save
+   * @returns The saved message with generated id and timestamps
    */
   async saveMessage(message: Omit<IConfigMessage, 'id' | 'acknowledgement' | 'acknowledgementCount'>): Promise<IConfigMessage | null> {
     try {
-      // Create a reference to the messages in the database
-      const messagesRef = ref(db, this.MESSAGES_REF);
+      console.log('Saving message firebase:', message);
+
+      // Create a reference to the messages collection
+      const messagesCollection = collection(firestore, this.MESSAGES_COLLECTION);
       
-      // Generate a new key for the message
-      const newMessageRef = push(messagesRef);
-      const messageId = newMessageRef.key;
+      // Generate a unique ID for the message
+      const messageId = uuidv4();
       
-      if (!messageId) {
-        throw new Error('Failed to generate message ID');
-      }
-      
-      // Create complete message object with ID and empty acknowledgements
+      // Create the complete message with acknowledgement info
       const completeMessage: IConfigMessage = {
-        ...message,
         id: messageId,
+        description: message.description,
+        config: message.config,
+        target: message.target,
         acknowledgement: [],
         acknowledgementCount: 0
       };
       
-      // Save message to Firebase
-      await set(newMessageRef, completeMessage);
+      // Save message to Firestore
+      console.log('Saving message to Firestore:', completeMessage);
+      await addDoc(messagesCollection, {
+        ...completeMessage,
+        // Add Firestore timestamps
+        firestoreCreatedAt: serverTimestamp(),
+        firestoreUpdatedAt: serverTimestamp()
+      });
       
       return completeMessage;
     } catch (error) {
@@ -46,79 +64,56 @@ class MessageServiceFirebase {
   }
 
   /**
-   * Get all messages in simplified form
-   * @returns Promise resolving to array of simplified messages
+   * Get all messages from Firestore
+   * @param callback - Callback function to receive messages
+   * @returns Unsubscribe function
    */
-  async getAllMessages(): Promise<IConfigMessageSimple[]> {
+  getMessages(callback: (messages: IConfigMessage[]) => void): () => void {
     try {
-      // Create a reference to the messages in the database
-      const messagesRef = ref(db, this.MESSAGES_REF);
+      // Create a query for messages ordered by creation time
+      const messagesQuery = query(
+        collection(firestore, this.MESSAGES_COLLECTION),
+        orderBy('firestoreCreatedAt', 'desc')
+      );
       
-      // Get messages snapshot
-      const snapshot = await get(messagesRef);
-      
-      if (!snapshot.exists()) {
-        return [];
-      }
-      
-      // Convert messages to array and map to simplified form
-      const messages: IConfigMessageSimple[] = [];
-      snapshot.forEach((childSnapshot) => {
-        const messageData = childSnapshot.val() as IConfigMessage;
-        messages.push({
-          id: messageData.id,
-          description: messageData.description,
-          acknowledgementCount: messageData.acknowledgementCount
+      // Subscribe to real-time updates
+      const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+        const messagesList: IConfigMessage[] = [];
+        
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          // Format the data for the IConfigMessage type
+          messagesList.push({
+            ...data,
+            id: doc.id, // Use the Firestore document ID
+            acknowledgement: data.acknowledgement || [],
+            acknowledgementCount: data.acknowledgementCount || 0
+          } as IConfigMessage);
         });
+        
+        callback(messagesList);
       });
       
-      // Sort by most recent first (assuming ids are timestamp-based)
-      messages.sort((a, b) => b.id.localeCompare(a.id));
-      
-      return messages;
+      return unsubscribe;
     } catch (error) {
       console.error('Error getting messages:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Get detailed information about a specific message
-   * @param id - ID of the message to retrieve
-   * @returns Promise resolving to the message details
-   */
-  async getMessageDetailsById(id: string): Promise<IConfigMessage | null> {
-    try {
-      // Create a reference to the specific message
-      const messageRef = ref(db, `${this.MESSAGES_REF}/${id}`);
+      callback([]);
       
-      // Get message snapshot
-      const snapshot = await get(messageRef);
-      
-      if (!snapshot.exists()) {
-        return null;
-      }
-      
-      // Return message data
-      return snapshot.val() as IConfigMessage;
-    } catch (error) {
-      console.error('Error getting message details:', error);
-      return null;
+      // Return dummy unsubscribe function
+      return () => {};
     }
   }
 
   /**
    * Delete a message by ID
-   * @param id - ID of the message to delete
-   * @returns Promise resolving to true if deletion was successful
+   * @param messageId - The ID of the message to delete
+   * @returns Whether the deletion was successful
    */
-  async deleteMessageById(id: string): Promise<boolean> {
+  async deleteMessage(messageId: string): Promise<boolean> {
     try {
-      // Create a reference to the specific message
-      const messageRef = ref(db, `${this.MESSAGES_REF}/${id}`);
-      
-      // Remove the message
-      await remove(messageRef);
+      // Delete the message from Firestore
+      const messageRef = doc(firestore, this.MESSAGES_COLLECTION, messageId);
+      await deleteDoc(messageRef);
       
       return true;
     } catch (error) {
@@ -128,66 +123,44 @@ class MessageServiceFirebase {
   }
 
   /**
-   * Set up a real-time listener for a specific message to monitor acknowledgements
-   * @param messageId - ID of the message to monitor
-   * @param callback - Function to call when the message changes
-   * @returns Unsubscribe function to clean up the listener
+   * Subscribe to message acknowledgements from bots
+   * @param messageId - The message ID to subscribe to
+   * @param callback - Callback function to receive acknowledgement updates
+   * @returns Unsubscribe function
    */
-  subscribeToMessageUpdates(messageId: string, callback: (message: IConfigMessage | null) => void): () => void {
-    const messageRef = ref(db, `${this.MESSAGES_REF}/${messageId}`);
-    
-    // Set up real-time listener
-    const unsubscribe = onValue(messageRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        callback(data as IConfigMessage);
-      } else {
-        callback(null);
-      }
-    }, (error) => {
-      console.error(`Error monitoring message ${messageId}:`, error);
-      callback(null);
-    });
-    
-    // Return unsubscribe function
-    return unsubscribe;
-  }
-
-  /**
-   * Set up a real-time listener for all messages
-   * @param callback - Function to call when messages change
-   * @returns Unsubscribe function to clean up the listener
-   */
-  subscribeToAllMessages(callback: (messages: IConfigMessageSimple[]) => void): () => void {
-    const messagesRef = ref(db, this.MESSAGES_REF);
-    
-    // Set up real-time listener
-    const unsubscribe = onValue(messagesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const messagesArray: IConfigMessageSimple[] = Object.entries(data).map(([_, messageData]) => {
-          const typedData = messageData as IConfigMessage;
-          return {
-            id: typedData.id,
-            description: typedData.description,
-            acknowledgementCount: typedData.acknowledgementCount
-          };
+  subscribeToMessageAcknowledgements(
+    messageId: string,
+    callback: (ack: IConfigMessage['acknowledgement'], count: number) => void
+  ): () => void {
+    try {
+      // We'll still use Realtime Database for acknowledgements since they'll change frequently
+      const ackRef = ref(db, `${this.MESSAGES_REF}/${messageId}/acknowledgement`);
+      
+      const unsubscribe = onValue(ackRef, (snapshot) => {
+        const ackData = snapshot.val();
+        
+        if (!ackData) {
+          console.warn(`No acknowledgement data found for message ${messageId}`);
+          return;
+        }
+        
+        // Get the acknowledgement count
+        const countRef = ref(db, `${this.MESSAGES_REF}/${messageId}/acknowledgementCount`);
+        onValue(countRef, (countSnapshot) => {
+          const count = countSnapshot.val() || 0;
+          callback(ackData, count);
+        }, {
+          onlyOnce: true
         });
-        
-        // Sort by most recent first (assuming ids are timestamp-based)
-        messagesArray.sort((a, b) => b.id.localeCompare(a.id));
-        
-        callback(messagesArray);
-      } else {
-        callback([]);
-      }
-    }, (error) => {
-      console.error('Error monitoring messages:', error);
-      callback([]);
-    });
-    
-    // Return unsubscribe function
-    return unsubscribe;
+      });
+      
+      return unsubscribe;
+    } catch (error) {
+      console.error('Error subscribing to acknowledgements:', error);
+      
+      // Return dummy unsubscribe function
+      return () => {};
+    }
   }
 }
 

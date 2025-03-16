@@ -94,6 +94,7 @@ export const useMessage = () => {
     setError(null);
     
     try {
+      console.log('Saving message hook:', message);
       const savedMessage = await messageServiceController.saveMessage(message);
       setLoading(false);
       return savedMessage;

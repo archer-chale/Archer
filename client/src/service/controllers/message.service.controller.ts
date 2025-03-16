@@ -18,6 +18,7 @@ class MessageServiceController {
     message: Omit<IConfigMessage, 'id' | 'acknowledgement' | 'acknowledgementCount'>
   ): Promise<IConfigMessage | null> {
     // Validate the message
+    console.log('Saving message controller:', message);
     const validationError = this.validateMessage(message);
     if (validationError) {
       console.error('Message validation error:', validationError);
@@ -27,7 +28,7 @@ class MessageServiceController {
     try {
       // Save message via Firebase service
       const savedMessage = await messageServiceFirebase.saveMessage(message);
-      
+      console.log('Message saved controller:', savedMessage);
       if (!savedMessage) {
         throw new Error('Failed to save message');
       }
@@ -45,8 +46,24 @@ class MessageServiceController {
    */
   async getAllMessages(): Promise<IConfigMessageSimple[]> {
     try {
-      // Get messages via Firebase service
-      return await messageServiceFirebase.getAllMessages();
+      // Create a promise to get messages
+      return new Promise((resolve, reject) => {
+        // Use the getMessages method from the Firebase service with a callback
+        const unsubscribe = messageServiceFirebase.getMessages((messages) => {
+          // Convert full messages to simplified form
+          const simplifiedMessages: IConfigMessageSimple[] = messages.map(msg => ({
+            id: msg.id,
+            description: msg.description,
+            acknowledgementCount: msg.acknowledgementCount
+          }));
+          
+          // Resolve the promise with simplified messages
+          resolve(simplifiedMessages);
+          
+          // Unsubscribe since we only need a one-time fetch
+          unsubscribe();
+        });
+      });
     } catch (error) {
       console.error('Error in getAllMessages controller:', error);
       throw error;
@@ -65,14 +82,23 @@ class MessageServiceController {
     }
 
     try {
-      // Get message details via Firebase service
-      const message = await messageServiceFirebase.getMessageDetailsById(id);
-      
-      if (!message) {
-        throw new Error(`Message with ID ${id} not found`);
-      }
-      
-      return message;
+      // Create a promise to get message details
+      return new Promise((resolve, reject) => {
+        // Use the getMessages method to fetch all messages
+        const unsubscribe = messageServiceFirebase.getMessages((messages) => {
+          // Find the message with the specified ID
+          const message = messages.find(msg => msg.id === id);
+          
+          if (!message) {
+            reject(new Error(`Message with ID ${id} not found`));
+          } else {
+            resolve(message);
+          }
+          
+          // Unsubscribe since we only need a one-time fetch
+          unsubscribe();
+        });
+      });
     } catch (error) {
       console.error(`Error in getMessageDetailsById controller for ID ${id}:`, error);
       throw error;
@@ -92,7 +118,7 @@ class MessageServiceController {
 
     try {
       // Delete message via Firebase service
-      const success = await messageServiceFirebase.deleteMessageById(id);
+      const success = await messageServiceFirebase.deleteMessage(id);
       
       if (!success) {
         throw new Error(`Failed to delete message with ID ${id}`);
@@ -122,8 +148,44 @@ class MessageServiceController {
     }
 
     try {
-      // Set up subscription via Firebase service
-      return messageServiceFirebase.subscribeToMessageUpdates(messageId, callback);
+      // Create a message tracker object for updates
+      let currentMessage: IConfigMessage | null = null;
+      
+      // Subscribe to all messages to get the full message data
+      const messagesUnsubscribe = messageServiceFirebase.getMessages((messages) => {
+        const message = messages.find(msg => msg.id === messageId) || null;
+        
+        // Store the found message for use with acknowledgement updates
+        if (message) {
+          currentMessage = message;
+          callback(message);
+        }
+      });
+      
+      // Subscribe to acknowledgement updates
+      const ackUnsubscribe = messageServiceFirebase.subscribeToMessageAcknowledgements(
+        messageId,
+        (acknowledgement, count) => {
+          // Only update if we have a current message
+          if (currentMessage) {
+            // Update acknowledgement and count
+            const updatedMessage: IConfigMessage = {
+              ...currentMessage,
+              acknowledgement: acknowledgement || [],
+              acknowledgementCount: count
+            };
+            
+            // Send updated message to callback
+            callback(updatedMessage);
+          }
+        }
+      );
+      
+      // Return a combined unsubscribe function
+      return () => {
+        messagesUnsubscribe();
+        ackUnsubscribe();
+      };
     } catch (error) {
       console.error(`Error in subscribeToMessageUpdates controller for ID ${messageId}:`, error);
       callback(null);
@@ -140,8 +202,18 @@ class MessageServiceController {
     callback: (messages: IConfigMessageSimple[]) => void
   ): () => void {
     try {
-      // Set up subscription via Firebase service
-      return messageServiceFirebase.subscribeToAllMessages(callback);
+      // Set up subscription to messages
+      return messageServiceFirebase.getMessages((messages) => {
+        // Convert to simplified form
+        const simplifiedMessages: IConfigMessageSimple[] = messages.map(msg => ({
+          id: msg.id,
+          description: msg.description,
+          acknowledgementCount: msg.acknowledgementCount
+        }));
+        
+        // Send to callback
+        callback(simplifiedMessages);
+      });
     } catch (error) {
       console.error('Error in subscribeToAllMessages controller:', error);
       callback([]);
@@ -199,14 +271,14 @@ class MessageServiceController {
       return 'Target selected must be an array';
     }
 
-    // For type "ALL", selected should be empty
+    // For "ALL" type, selected should be empty
     if (target.type === 'ALL' && target.selected.length > 0) {
-      return 'For target type "ALL", selected array must be empty';
+      return 'Target selected should be empty for type "ALL"';
     }
 
-    // For type "SELECTED", selected should have at least one item
+    // For "SELECTED" type, selected should have at least one entry
     if (target.type === 'SELECTED' && target.selected.length === 0) {
-      return 'For target type "SELECTED", at least one bot must be selected';
+      return 'At least one target must be selected for type "SELECTED"';
     }
 
     return null;

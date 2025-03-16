@@ -163,7 +163,7 @@ const ViewAllMessages: React.FC<ViewAllMessagesProps> = ({
                         </Typography>
                       ) : (
                         <Grid container spacing={1}>
-                          {expandedMessage.acknowledgement.map((botId) => (
+                          {expandedMessage?.acknowledgement?.map((botId) => (
                             <Grid item key={botId}>
                               <Chip label={botId} size="small" />
                             </Grid>
