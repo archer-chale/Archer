@@ -157,7 +157,7 @@ const ViewAllMessages: React.FC<ViewAllMessagesProps> = ({
                         Acknowledgements ({expandedMessage.acknowledgementCount})
                       </Typography>
                       
-                      {expandedMessage.acknowledgement.length === 0 ? (
+                      {expandedMessage?.acknowledgement?.length === 0 ? (
                         <Typography variant="body2" color="text.secondary">
                           No acknowledgements yet.
                         </Typography>

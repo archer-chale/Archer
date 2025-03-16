@@ -15,10 +15,12 @@ import {
   Typography,
   Chip,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Autocomplete
 } from '@mui/material';
 import { IConfigMessage, IMessageTarget } from '../../../types/pubsubmessage.type';
 import { useMessage } from '../../../hooks/useMessage.hook';
+import { useServicesStore } from '../../../store/services.store';
 
 /**
  * Props for the CreateMessageDialog component
@@ -39,6 +41,7 @@ const CreateMessageDialog: React.FC<CreateMessageDialogProps> = ({
   onMessageCreated
 }) => {
   const { saveMessage, loading, error } = useMessage();
+  const { services, loading: servicesLoading } = useServicesStore();
   
   // Form state
   const [description, setDescription] = useState('');
@@ -157,6 +160,24 @@ const CreateMessageDialog: React.FC<CreateMessageDialogProps> = ({
     }
   };
 
+  /**
+   * Handle selecting a service from the dropdown
+   */
+  const handleServiceSelect = (value: string | null) => {
+    if (value && !selectedTargets.includes(value)) {
+      setSelectedTargets([...selectedTargets, value]);
+      setNewTarget('');
+    }
+  };
+
+  // Get available service IDs/tickers for selection
+  const availableServices = services
+    .filter(service => {
+      const serviceId = service.ticker;
+      return !selectedTargets.includes(serviceId);
+    })
+    .map(service => service.ticker);
+
   return (
     <Dialog
       open={open}
@@ -241,8 +262,33 @@ const CreateMessageDialog: React.FC<CreateMessageDialogProps> = ({
         {targetType === 'SELECTED' && (
           <Box sx={{ mt: 2 }}>
             <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+              <Autocomplete
+                options={availableServices}
+                value={null}
+                onChange={(_, value) => handleServiceSelect(value)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Select Service"
+                    variant="outlined"
+                    size="small"
+                    sx={{ flexGrow: 1 }}
+                  />
+                )}
+                disabled={loading || servicesLoading}
+                fullWidth
+              />
+              {servicesLoading && (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <CircularProgress size={24} />
+                </Box>
+              )}
+            </Box>
+            
+            {/* Manual entry option */}
+            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
               <TextField
-                label="Add Target"
+                label="Add Custom Target"
                 value={newTarget}
                 onChange={(e) => setNewTarget(e.target.value)}
                 variant="outlined"
@@ -276,6 +322,18 @@ const CreateMessageDialog: React.FC<CreateMessageDialogProps> = ({
                 ))
               )}
             </Box>
+
+            {/* Show service information */}
+            {services.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Available Services: {services.length}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {services.map(s => s.ticker).join(', ')}
+                </Typography>
+              </Box>
+            )}
           </Box>
         )}
       </DialogContent>

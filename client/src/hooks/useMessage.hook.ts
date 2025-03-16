@@ -1,78 +1,49 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { IConfigMessage, IConfigMessageSimple } from '../types/pubsubmessage.type';
-
-/**
- * Mock data for testing the Messages UI
- */
-const mockMessages: IConfigMessageSimple[] = [
-  {
-    id: '1',
-    description: 'Reset counter to 5',
-    acknowledgementCount: 3
-  },
-  {
-    id: '2',
-    description: 'Set all counters to 10',
-    acknowledgementCount: 5
-  },
-  {
-    id: '3',
-    description: 'Pause AAPL counter',
-    acknowledgementCount: 1
-  },
-  {
-    id: '4',
-    description: 'Reset all counters',
-    acknowledgementCount: 0
-  }
-];
-
-/**
- * Mock message details
- */
-const mockMessageDetails: Record<string, IConfigMessage> = {
-  '1': {
-    id: '1',
-    description: 'Reset counter to 5',
-    acknowledgement: ['bot1', 'bot2', 'bot3'],
-    acknowledgementCount: 3,
-    config: { startCountAt: 5 },
-    target: { type: 'SELECTED', selected: ['bot1', 'bot2', 'bot3'] }
-  },
-  '2': {
-    id: '2',
-    description: 'Set all counters to 10',
-    acknowledgement: ['bot1', 'bot2', 'bot3', 'bot4', 'bot5'],
-    acknowledgementCount: 5,
-    config: { startCountAt: 10 },
-    target: { type: 'ALL', selected: [] }
-  },
-  '3': {
-    id: '3',
-    description: 'Pause AAPL counter',
-    acknowledgement: ['bot1'],
-    acknowledgementCount: 1,
-    config: { startCountAt: 0 },
-    target: { type: 'SELECTED', selected: ['bot1'] }
-  },
-  '4': {
-    id: '4',
-    description: 'Reset all counters',
-    acknowledgement: [],
-    acknowledgementCount: 0,
-    config: { startCountAt: 0 },
-    target: { type: 'ALL', selected: [] }
-  }
-};
+import { messageServiceController } from '../service/controllers/message.service.controller';
 
 /**
  * Custom hook for managing messages
  * Provides functions for creating, retrieving, and deleting messages
  */
 export const useMessage = () => {
-  const [messages, setMessages] = useState<IConfigMessageSimple[]>(mockMessages);
+  const [messages, setMessages] = useState<IConfigMessageSimple[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Load messages when the hook is initialized
+  useEffect(() => {
+    loadAllMessages();
+    
+    // Set up real-time subscription for all messages
+    const unsubscribe = messageServiceController.subscribeToAllMessages((updatedMessages) => {
+      setMessages(updatedMessages);
+    });
+    
+    // Clean up subscription when component unmounts
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  /**
+   * Load all messages initially
+   * Private function to avoid exposing it in the hook's return value
+   */
+  const loadAllMessages = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const allMessages = await messageServiceController.getAllMessages();
+      setMessages(allMessages);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load messages');
+      console.error('Error loading messages:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /**
    * Retrieves all messages in simplified form
@@ -80,15 +51,15 @@ export const useMessage = () => {
    */
   const getAllMessages = useCallback(async () => {
     setLoading(true);
+    setError(null);
+    
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Return mock data
+      const allMessages = await messageServiceController.getAllMessages();
       setLoading(false);
-      return mockMessages;
+      return allMessages;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to get messages');
+      console.error('Error getting all messages:', err);
       setLoading(false);
       return [];
     }
@@ -100,19 +71,15 @@ export const useMessage = () => {
    */
   const getMessageDetailsById = useCallback(async (id: string) => {
     setLoading(true);
+    setError(null);
+    
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      const messageDetails = mockMessageDetails[id];
-      if (!messageDetails) {
-        throw new Error('Message not found');
-      }
-      
+      const messageDetails = await messageServiceController.getMessageDetailsById(id);
       setLoading(false);
       return messageDetails;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to get message details');
+      console.error(`Error getting message details for ID ${id}:`, err);
       setLoading(false);
       return null;
     }
@@ -124,31 +91,15 @@ export const useMessage = () => {
    */
   const saveMessage = useCallback(async (message: Omit<IConfigMessage, 'id' | 'acknowledgement' | 'acknowledgementCount'>) => {
     setLoading(true);
+    setError(null);
+    
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Create new message with ID and empty acknowledgements
-      const newMessage: IConfigMessage = {
-        ...message,
-        id: `msg-${Date.now()}`,
-        acknowledgement: [],
-        acknowledgementCount: 0
-      };
-      
-      // Update mock data
-      mockMessageDetails[newMessage.id] = newMessage;
-      const newSimpleMessage: IConfigMessageSimple = {
-        id: newMessage.id,
-        description: newMessage.description,
-        acknowledgementCount: 0
-      };
-      
-      setMessages(prev => [newSimpleMessage, ...prev]);
+      const savedMessage = await messageServiceController.saveMessage(message);
       setLoading(false);
-      return newMessage;
+      return savedMessage;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save message');
+      console.error('Error saving message:', err);
       setLoading(false);
       return null;
     }
@@ -160,21 +111,28 @@ export const useMessage = () => {
    */
   const deleteMessageById = useCallback(async (id: string) => {
     setLoading(true);
+    setError(null);
+    
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 400));
-      
-      // Remove from mock data
-      delete mockMessageDetails[id];
-      setMessages(prev => prev.filter(message => message.id !== id));
-      
+      const success = await messageServiceController.deleteMessageById(id);
       setLoading(false);
-      return true;
+      return success;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete message');
+      console.error(`Error deleting message with ID ${id}:`, err);
       setLoading(false);
       return false;
     }
+  }, []);
+
+  /**
+   * Set up a real-time listener for a specific message to monitor acknowledgements
+   * @param messageId - ID of the message to monitor
+   * @param callback - Function to call when the message changes
+   * @returns Unsubscribe function to clean up the listener
+   */
+  const subscribeToMessageUpdates = useCallback((messageId: string, callback: (message: IConfigMessage | null) => void) => {
+    return messageServiceController.subscribeToMessageUpdates(messageId, callback);
   }, []);
 
   return {
@@ -184,6 +142,7 @@ export const useMessage = () => {
     getAllMessages,
     getMessageDetailsById,
     saveMessage,
-    deleteMessageById
+    deleteMessageById,
+    subscribeToMessageUpdates
   };
 };

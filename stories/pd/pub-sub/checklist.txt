@@ -45,10 +45,8 @@ File: client/src/hooks/useMessage.hook.ts (new file) Why: Create a hook with
 ⦁	Implement mock functions for saveMessage, getAllMessages, getMessageDetailsById
 ⦁	Add state for messages, loading, and errors
 ⦁	Simulate asynchronous behavior
+
 Phase 2: Backend Integration
-Please ask questions to clarify to make sure we are both on the same page
-
-
 7. Create Firebase Message Service
 File: client/src/service/firebase/message.service.firebase.ts (new file) Why: Implement Firebase database interactions for storing and retrieving messages.
 ⦁	Create CRUD functions for messages
