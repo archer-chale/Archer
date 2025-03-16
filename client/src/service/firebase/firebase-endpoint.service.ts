@@ -49,6 +49,7 @@ class FirebaseEndpointService {
           ticker,
           ...serviceData as Omit<Service, 'ticker'>
         }));
+        console.log(servicesArray);
         callback(servicesArray);
       } else {
         callback([]);

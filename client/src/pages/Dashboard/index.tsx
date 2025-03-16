@@ -1,23 +1,15 @@
-import { useState } from 'react';
 import { 
   Accordion, 
   AccordionDetails, 
   AccordionSummary, 
   Alert,
   Box,
-  Button,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Grid, 
-  TextField,
   Typography,
 } from '@mui/material';
-import { ExpandMore, TrendingUp, Send } from '@mui/icons-material';
+import { ExpandMore, TrendingUp } from '@mui/icons-material';
 import { useFirebaseServices } from '../../hooks/useFirebaseServices';
 
 // Status color mapping
@@ -29,71 +21,7 @@ const statusColors = {
 } as const;
 
 const Dashboard = () => {
-  const { services, loading, error, sendMessage } = useFirebaseServices();
-  
-  // State for the global message form
-  const [globalMessage, setGlobalMessage] = useState('');
-  
-  // State for the bot-specific message dialog
-  const [openDialog, setOpenDialog] = useState(false);
-  const [selectedBotId, setSelectedBotId] = useState<string | null>(null);
-  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
-  const [botMessage, setBotMessage] = useState('');
-
-  /**
-   * Handles submission of a global message to all bots
-   * Uses the Firebase service to send a message to all bots
-   */
-  const handleSendGlobalMessage = async () => {
-    if (globalMessage.trim()) {
-      const success = await sendMessage(globalMessage, "ALL");
-      
-      if (success) {
-        setGlobalMessage('');
-      } else {
-        // TODO: Add error handling UI
-        alert('Failed to send message to all bots');
-      }
-    }
-  };
-
-  /**
-   * Opens the dialog for sending a message to a specific bot
-   * @param ticker - The ticker symbol of the service
-   * @param botId - The ID of the bot to send a message to
-   */
-  const handleOpenBotDialog = (ticker: string, botId: string) => {
-    setSelectedBotId(botId);
-    setSelectedTicker(ticker);
-    setOpenDialog(true);
-  };
-
-  /**
-   * Closes the bot message dialog and resets its state
-   */
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setBotMessage('');
-    setSelectedBotId(null);
-    setSelectedTicker(null);
-  };
-
-  /**
-   * Handles submission of a message to a specific bot
-   * Uses the Firebase service to send a message to the selected bot
-   */
-  const handleSendBotMessage = async () => {
-    if (botMessage.trim() && selectedBotId && selectedTicker) {
-      const success = await sendMessage(botMessage, selectedTicker);
-      
-      if (success) {
-        handleCloseDialog();
-      } else {
-        // TODO: Add error handling UI
-        alert(`Failed to send message to ${selectedTicker}`);
-      }
-    }
-  };
+  const { services, loading, error } = useFirebaseServices();
 
   if (loading) {
     return (
@@ -136,51 +64,6 @@ const Dashboard = () => {
             <TrendingUp fontSize="large" />
             Trading Bot Services
           </Typography>
-        </Grid>
-
-        {/* Global Message Form */}
-        <Grid item xs={12} md={8} sx={{ mb: 4 }}>
-          <Box 
-            component="form" 
-            sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              alignItems: 'center',
-              gap: 2,
-              p: { xs: 1.5, sm: 2 },
-              backgroundColor: 'white',
-              borderRadius: 2,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-              width: '100%',
-              boxSizing: 'border-box',
-              overflow: 'hidden'
-            }}
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendGlobalMessage();
-            }}
-          >
-            <TextField
-              fullWidth
-              label="Send message to ALL bots"
-              variant="outlined"
-              value={globalMessage}
-              onChange={(e) => setGlobalMessage(e.target.value)}
-              placeholder="Type your message here..."
-            />
-            <Button 
-              variant="contained" 
-              color="primary" 
-              type="submit"
-              startIcon={<Send />}
-              sx={{ 
-                minWidth: { xs: '100%', sm: 'auto' },
-                whiteSpace: 'nowrap'
-              }}
-            >
-              Send to All
-            </Button>
-          </Box>
         </Grid>
 
         {/* Bot Cards */}
@@ -235,15 +118,6 @@ const Dashboard = () => {
                           Last updated: {new Date(bot.last_updated).toLocaleString()}
                         </Typography>
                       </Box>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<Send />}
-                        onClick={() => handleOpenBotDialog(service.ticker, botId)}
-                        sx={{ mt: { xs: 1, sm: 0 } }}
-                      >
-                        Send Message
-                      </Button>
                     </Grid>
                   ))}
                   {(!service.bots || Object.keys(service.bots).length === 0) && (
@@ -259,36 +133,6 @@ const Dashboard = () => {
           </Grid>
         ))}
       </Grid>
-
-      {/* Bot Message Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog}>
-        <DialogTitle>
-          Send Message to {selectedTicker} - Bot {selectedBotId}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Enter a message to send to this specific bot:
-          </DialogContentText>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Message"
-            type="text"
-            fullWidth
-            variant="outlined"
-            value={botMessage}
-            onChange={(e) => setBotMessage(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleSendBotMessage} color="primary" variant="contained" startIcon={<Send />}>
-            Send
-          </Button>
-        </DialogActions>
-      </Dialog>
     </div>
   );
 };

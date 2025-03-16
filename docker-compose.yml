@@ -10,7 +10,7 @@ services:
     command: AAPL
     volumes:
       - ./configs/adminsdk.json:/app/adminsdk.json:ro
-    restart: no
+    restart: unless-stopped
     logging:
       driver: "json-file"
       options:
@@ -25,7 +25,7 @@ services:
     command: META
     volumes:
       - ./configs/adminsdk.json:/app/adminsdk.json:ro
-    restart: no
+    restart: unless-stopped
     logging:
       driver: "json-file"
       options:
@@ -40,7 +40,7 @@ services:
     command: AMZN
     volumes:
       - ./configs/adminsdk.json:/app/adminsdk.json:ro
-    restart: no
+    restart: unless-stopped
     logging:
       driver: "json-file"
       options:
@@ -55,7 +55,7 @@ services:
     command: MSFT
     volumes:
       - ./configs/adminsdk.json:/app/adminsdk.json:ro
-    restart: no
+    restart: unless-stopped
     logging:
       driver: "json-file"
       options:

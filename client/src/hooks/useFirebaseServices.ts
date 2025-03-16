@@ -28,20 +28,5 @@ export const useFirebaseServices = () => {
     }
   }, []);
 
-  /**
-   * Send a message to a specific bot or all bots
-   * @param message - Message content
-   * @param target - Target container ID or "ALL" for all bots
-   * @returns Promise resolving to true if successful
-   */
-  const sendMessage = async (message: string, target: string): Promise<boolean> => {
-    try {
-      return await firebaseServiceController.sendMessage(message, target);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      return false;
-    }
-  };
-
-  return { services, loading, error, sendMessage };
+  return { services, loading, error };
 };
