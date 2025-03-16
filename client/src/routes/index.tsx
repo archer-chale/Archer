@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { Menu, TrendingUp, Assessment } from '@mui/icons-material';
 import Dashboard from '../pages/Dashboard';
-import Logs from '../pages/Logs';
+import Messages from '../pages/Messages';
 
 /**
  * Navigation component for the application
@@ -69,8 +69,8 @@ const Navigation = () => {
         <ListItem disablePadding>
           <ListItemButton 
             component={Link} 
-            to="/logs"
-            selected={isActive('/logs')}
+            to="/messages"
+            selected={isActive('/messages')}
             onClick={() => setDrawerOpen(false)}
           >
             <ListItemIcon>
@@ -161,7 +161,7 @@ const Navigation = () => {
         <Toolbar /> {/* Empty toolbar to push content below AppBar */}
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/logs" element={<Logs />} />
+          <Route path="/messages" element={<Messages />} />
         </Routes>
       </Box>
     </Box>

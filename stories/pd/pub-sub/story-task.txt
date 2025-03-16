@@ -24,9 +24,64 @@ What is the user flow?
 
 
 Implementation plans:
+For our simple poc we will want to be able to send a message where our counter bot will start at whatever number we set in our config
+  - For example if our bot currently has a count of 200, when we send a message in our config we will have a startCountAt: 3, and if the message is for our bot they will start at a count of 3 and acknowlege the message
+
+
 client - this is the frontend application the user has access to on their phone and will allow the user to see what is running
+client\src\types - This is where we create types to tell our application the interface types for our messages
+we have created pubsubmessage.type.ts
+our interface will have the following
+
+interface IConfigMessage {
+id: string - this will be the id of the message
+acknowlegement: string[] - this will old all of the id of the bots who have acknowleged/acted on the message
+acknowlegementCount: number - the number of bots who acknowleged the message
+description: string - This allows the user to provide details on what the config is for
+config: object - this will be the configuration the user wants the bot to act on, for this simple poc we will leave it to be an object but we will update it as we define our configurations in the future
+}
+
+interface IConfigMessageSimple { - this interface is used to get all of the messages and the simple count of the bots that acknowleged it, since there will be so many messages we do not want to get all of the data on one load
+    id: string
+    description: string
+    acknowlegementCount: number
+}
+
+
 - client\src\hooks
+- We will create a new usePubSubMessage.hook.ts  - this will be the hook we will use to save messages to the firebase database, We will create the following functions in out hook
+saveMessage:
+- This function will simple call our pubsubMessageServiceController.saveMessage(message: IConfigMessage) : IConfigMessage
+
+getAllMessages:
+- this function will call our pubsubMessageServiceController.getAllMessages(): IConfigMessageSimple - this function will be called on useEffect when the application loads 
+
+getMessageDetailsById:
+deleteMessageById
+- This function will call our pubsubMessageServiceController.getMessageDetailsById(id: string): IConfigMessage
+
+- There will be no updating of messages since this will be sending messages on pubsub
+
 - client\src\pages
+client\src\pages\Messages\index.tsx - this will be the page the creates new messages and where the user will be able to view messages sent
+- First we will import our usePubSubMessage and remove the useFirebaseLogs
+- We will create a button where the user can click to create a new message, this will be a dialog that will show on top of the screen for the user to fill
+
+- client\src\pages\Messages\components\createMessageDialog.component.ts
+    - This will be a new component we create the will allow us to create a new message to forward to our bots, it will return IConfigMessage that we will foward to our hook function to saveMessage
+
+
+- client\src\pages\Messages\components\viewAllMessages.component.ts
+    - For the view of the messages we will create viewAllMessages, which will be a table of messages
+
+client\src\pages\Messages\components\messageCard.component.ts
+     - This will be the messageCard used in the view All Messages, when the user clicks on the messageCard, it will expand to call our getMessageDetailsById to get the message details for the user to view additional details needed
+
+client\src\pages\Dashboard\index.tsx
+    - We will remove any use of creating messages here or sending messages here,
+    - This page is simply used to see updates of our bots state
+
+
 - client\src\service\controllers
 - client\src\service\firebase
 
