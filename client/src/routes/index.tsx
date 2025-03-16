@@ -19,6 +19,7 @@ import {
 import { Menu, TrendingUp, Assessment } from '@mui/icons-material';
 import Dashboard from '../pages/Dashboard';
 import Messages from '../pages/Messages';
+import { DASHBOARD, MESSAGES } from './routes.path';
 
 /**
  * Navigation component for the application
@@ -56,8 +57,8 @@ const Navigation = () => {
         <ListItem disablePadding>
           <ListItemButton 
             component={Link} 
-            to="/"
-            selected={isActive('/')}
+            to={DASHBOARD}
+            selected={isActive(DASHBOARD)}
             onClick={() => setDrawerOpen(false)}
           >
             <ListItemIcon>
@@ -69,8 +70,8 @@ const Navigation = () => {
         <ListItem disablePadding>
           <ListItemButton 
             component={Link} 
-            to="/messages"
-            selected={isActive('/messages')}
+            to={MESSAGES}
+            selected={isActive(MESSAGES)}
             onClick={() => setDrawerOpen(false)}
           >
             <ListItemIcon>
@@ -106,26 +107,26 @@ const Navigation = () => {
             <Box sx={{ display: 'flex' }}>
               <Box 
                 component={Link} 
-                to="/"
+                to={DASHBOARD}
                 sx={{
                   color: 'white',
                   textDecoration: 'none',
                   mx: 2,
-                  fontWeight: isActive('/') ? 'bold' : 'normal',
-                  borderBottom: isActive('/') ? '2px solid white' : 'none',
+                  fontWeight: isActive(DASHBOARD) ? 'bold' : 'normal',
+                  borderBottom: isActive(DASHBOARD) ? '2px solid white' : 'none',
                 }}
               >
                 Dashboard
               </Box>
               <Box 
                 component={Link} 
-                to="/messages"
+                to={MESSAGES}
                 sx={{
                   color: 'white',
                   textDecoration: 'none',
                   mx: 2,
-                  fontWeight: isActive('/messages') ? 'bold' : 'normal',
-                  borderBottom: isActive('/messages') ? '2px solid white' : 'none',
+                  fontWeight: isActive(MESSAGES) ? 'bold' : 'normal',
+                  borderBottom: isActive(MESSAGES) ? '2px solid white' : 'none',
                 }}
               >
                 Messages
@@ -160,8 +161,8 @@ const Navigation = () => {
       }}>
         <Toolbar /> {/* Empty toolbar to push content below AppBar */}
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/messages" element={<Messages />} />
+          <Route path={DASHBOARD} element={<Dashboard />} />
+          <Route path={MESSAGES} element={<Messages />} />
         </Routes>
       </Box>
     </Box>

@@ -1,40 +1,63 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Grid, 
   Typography, 
-  Paper, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow,
   CircularProgress,
-  Alert
+  Alert,
+  Button,
+  Fab
 } from '@mui/material';
-import { useFirebaseLogs } from '../../hooks/useFirebaseLogs';
+import AddIcon from '@mui/icons-material/Add';
+import { useMessage } from '../../hooks/useMessage.hook';
+import ViewAllMessages from './components/viewAllMessages.component';
+import CreateMessageDialog from './components/createMessageDialog.component';
 
 /**
- * Logs page component
- * Displays log entries from the pub/sub system
+ * Messages page component
+ * Displays messages and provides interface for creating new messages
  */
 const Messages = () => {
-  const { logs, loading, error } = useFirebaseLogs();
+  const { messages, loading, error, getAllMessages, deleteMessageById } = useMessage();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
-  // Format timestamp to human-readable format
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleString();
-    } catch {
-      return dateString;
-    }
+  // Load messages when component mounts
+  useEffect(() => {
+    getAllMessages();
+  }, [getAllMessages]);
+
+  /**
+   * Opens the create message dialog
+   */
+  const handleOpenCreateDialog = () => {
+    setCreateDialogOpen(true);
+  };
+
+  /**
+   * Closes the create message dialog
+   */
+  const handleCloseCreateDialog = () => {
+    setCreateDialogOpen(false);
+  };
+
+  /**
+   * Deletes a message
+   * @param messageId - ID of the message to delete
+   */
+  const handleDeleteMessage = async (messageId: string) => {
+    await deleteMessageById(messageId);
+  };
+
+  /**
+   * Refreshes the message list after a new message is created
+   */
+  const handleMessageCreated = () => {
+    getAllMessages();
   };
 
   return (
     <Box sx={{
-      p: 3,
+      p: { xs: 2, sm: 3 },
       width: '100%',
       backgroundColor: '#f8f9fa',
       minHeight: '100vh'
@@ -45,21 +68,37 @@ const Messages = () => {
         margin: '0 auto',
         justifyContent: 'center'
       }}>
-        {/* Page Title */}
-        <Grid item xs={12}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            System Logs
-          </Typography>
-          <Typography variant="subtitle1" gutterBottom>
-            View real-time logs from all trading bots
-          </Typography>
+        {/* Page Title and Actions */}
+        <Grid item xs={12} sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mb: { xs: 1, sm: 2 } 
+        }}>
+          <Box>
+            <Typography variant="h4" component="h1" gutterBottom>
+              Messages
+            </Typography>
+            <Typography variant="subtitle1" gutterBottom>
+              Create and manage messages for your bots
+            </Typography>
+          </Box>
+          <Button 
+            variant="contained" 
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={handleOpenCreateDialog}
+            sx={{ display: { xs: 'none', sm: 'flex' } }}
+          >
+            New Message
+          </Button>
         </Grid>
 
         {/* Error message */}
         {error && (
           <Grid item xs={12}>
             <Alert severity="error">
-              Error loading logs: {error}
+              Error: {error}
             </Alert>
           </Grid>
         )}
@@ -71,45 +110,40 @@ const Messages = () => {
           </Grid>
         )}
 
-        {/* Logs Table */}
+        {/* Messages list */}
         {!loading && !error && (
           <Grid item xs={12}>
-            <TableContainer component={Paper} sx={{ 
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-              borderRadius: '8px',
-              overflow: 'auto',
-              width: '100%'
-            }}>
-              <Table sx={{ minWidth: { xs: 300, sm: 650 } }}>
-                <TableHead sx={{ backgroundColor: '#f5f5f5' }}>
-                  <TableRow>
-                    <TableCell>Timestamp</TableCell>
-                    <TableCell>Container ID</TableCell>
-                    <TableCell>Message</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {logs.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} align="center">
-                        No logs available
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    logs.map((log) => (
-                      <TableRow key={log.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                        <TableCell>{formatDate(log.timestamp)}</TableCell>
-                        <TableCell>{log.containerId}</TableCell>
-                        <TableCell>{log.message}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <ViewAllMessages 
+              messages={messages}
+              onDeleteMessage={handleDeleteMessage}
+              loading={loading}
+            />
           </Grid>
         )}
       </Grid>
+
+      {/* Mobile floating action button for creating messages */}
+      <Box sx={{ 
+        position: 'fixed', 
+        bottom: 20, 
+        right: 20, 
+        display: { xs: 'block', sm: 'none' } 
+      }}>
+        <Fab 
+          color="primary" 
+          aria-label="add" 
+          onClick={handleOpenCreateDialog}
+        >
+          <AddIcon />
+        </Fab>
+      </Box>
+
+      {/* Create message dialog */}
+      <CreateMessageDialog 
+        open={createDialogOpen} 
+        onClose={handleCloseCreateDialog}
+        onMessageCreated={handleMessageCreated}
+      />
     </Box>
   );
 };
