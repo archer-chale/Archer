@@ -17,3 +17,6 @@ export const helloWorld = onRequest((request, response) => {
   logger.info("Hello logs!", {structuredData: true});
   response.send("Hello from Firebase!");
 });
+
+export * from './message/message.database';
+export { onMessageCreated } from './message/message.listener';
