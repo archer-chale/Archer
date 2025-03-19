@@ -1,11 +1,15 @@
 import logging
 import time
 from firebase_client import update_bot_count
+from message_firebase_client import initialize_message_client
 
 def run_counter_bot(service_id, ticker, bot_id):
     counter = 0
     last_update = 0
     logging.info(f"Starting counter bot for service {service_id}...")
+    
+    # Initialize the message client to listen for configuration messages
+    message_client = initialize_message_client(bot_id, ticker)
     
     try:
         while True:
@@ -24,3 +28,5 @@ def run_counter_bot(service_id, ticker, bot_id):
         logging.info(f"Counter bot for service {service_id} interrupted and stopping.")
         # Update one final time before stopping
         update_bot_count(ticker, bot_id, counter)
+        # Stop the message client
+        message_client.stop()

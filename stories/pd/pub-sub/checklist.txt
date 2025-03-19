@@ -71,7 +71,7 @@ File: client/src/hooks/useMessage.hook.ts Why: Replace mock implementations w
 Please ask questions to clarify to make sure we are both on the same page
 
 
-10. Firebase Function Implementation
+10. Firebase Function Implementation - DONE
 Files:
 ⦁	firebase/functions/src/message/message.database.ts (new file)
 ⦁	firebase/functions/src/message/message.listener.ts (new file)
@@ -93,8 +93,28 @@ Why: Enable bots to receive and process messages.
 ⦁	Update counter bot to process configuration messages
 ⦁	Add acknowledgment functionality
 Please ask questions to clarify to make sure we are both on the same page
+Does the Docker container already exist, and can you show me the structure of the existing bot files (service.py and counter_bot.py)?
+Yes these files are on the root of the project
+Also checkout our docker-compose.yml and our Dockerfile
 
 
+Is there a specific Firebase library you'd prefer to use for Python? (like firebase-admin, pyrebase, etc.)
+Look at firebase_client.py for how we are currently communicating with firebase, in this case we want to simply listen to the messages
+
+Are the bots already authenticated with Firebase? If so, how are they authenticating (service account JSON, API key, etc.)?
+- Yes they are checkout firebase_client.py
+Will the bots need to subscribe to the Firebase Cloud Messaging topic we defined in the function (config-messages), or is there a different mechanism for them to receive messages?
+Yes this will need to subscribe to the topic we created
+For acknowledgment, should the bots make a direct call to Firebase to mark messages as acknowledged, or should they use an existing API?
+- For now let's log the messages we get from our client
+What's the expected behavior when a bot receives a message? For the counter bot specifically, I'm assuming it should update its counter based on the startCountAt value in the config.
+Yes but for now let's simply log the messages
+
+
+
+
+
+++=====
 Phase 3: Testing and Refinement
 12. End-to-End Testing
 Why: Verify that the entire system works as expected.
