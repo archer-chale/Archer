@@ -9,6 +9,7 @@
 
 import {onRequest} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
+import { messageCreatedHandler, onMessageAcknowledged } from "./message/message.listener";
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
@@ -18,5 +19,5 @@ export const helloWorld = onRequest((request, response) => {
   response.send("Hello from Firebase!");
 });
 
-export * from './message/message.database';
-export { onMessageCreated } from './message/message.listener';
+// Export message related functions
+export { messageCreatedHandler, onMessageAcknowledged };
