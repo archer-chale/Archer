@@ -14,12 +14,28 @@ configs/*
 
 # testing
 /coverage
+.coverage
+coverage.json
+
+# scale_t
+app.log
+main/bots/SCALE_T/planner
+main/bots/SCALE_T/brokerages/reference_file.py
+main/bots/SCALE_T/trading/simple\ feature\ implementation   
+todos2.todo
+todos.todo
+trashCan/
+data/
 
 # production
 /build
 /dist
 
+
 # misc
+.coverage
+.vscode/
+
 .DS_Store
 .env
 .env.local

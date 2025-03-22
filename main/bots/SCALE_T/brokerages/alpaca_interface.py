@@ -1,0 +1,212 @@
+"""
+Alpaca brokerage interface for SCALE_T bot.
+
+This module provides an interface (AlpacaInterface class) for interacting with the Alpaca brokerage API using the alpaca-py SDK.
+It encapsulates brokerage functionalities and provides a singleton trading client for efficient reuse.
+"""
+
+import os, sys
+from typing import Tuple, List, Dict, Any, Optional, Callable, Awaitable, Union
+import asyncio
+from dotenv import load_dotenv
+from alpaca.trading.client import TradingClient
+from alpaca.trading.requests import GetAssetsRequest
+from alpaca.trading.enums import AssetStatus
+from alpaca.data.live import StockDataStream
+from alpaca.trading.enums import OrderStatus
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockLatestTradeRequest
+from alpaca.data.models import Trade, Quote, Bar
+from alpaca.common.exceptions import APIError
+
+from ..common.constants import (
+    PAPER_ALPACA_KEY_ID,
+    PAPER_ALPACA_SECRET_KEY,
+    LIVE_ALPACA_KEY_ID,
+    LIVE_ALPACA_SECRET_KEY,
+    ENV_FILE,
+)
+from ..common.logging_config import get_logger
+
+# Load environment variables from .env file
+load_dotenv(ENV_FILE)
+
+
+class AlpacaInterface:
+    """
+    Provides an interface for interacting with the Alpaca brokerage API.
+
+    Handles API key validation and trading functionalities using the alpaca-py SDK.
+    Uses a singleton pattern for the trading client for efficiency.
+    """
+
+    def __init__(self, trading_type: str = "paper", ticker: str = None):
+        self.logger = get_logger(__name__)
+        self.trading_type = trading_type
+        self.ticker = ticker
+        self.api_key = None
+        self.secret_key = None
+        self.trading_client = None # Instance-level variable
+        self.data_client = None
+        self.logger.info("Initializing AlpacaInterface ")
+        self.set_trading_client()
+
+
+        is_valid, errors = self.validate_alpaca_keys()
+        if not is_valid:
+            self.logger.error(f"Alpaca key validation failed: {errors}. Exiting.")
+            sys.exit(0)
+        self.logger.info("Alpaca interface initialized successfully.")
+
+    def set_trading_client(self) -> None:
+        """
+        Sets the Alpaca Trading client and api/secret keys.
+        """
+        if self.trading_type == "paper":
+            self.api_key = os.environ.get(PAPER_ALPACA_KEY_ID)
+            self.secret_key = os.environ.get(PAPER_ALPACA_SECRET_KEY)
+            self.trading_client = TradingClient(self.api_key, self.secret_key, paper=True)
+            self.data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
+        else:  # live
+            self.api_key = os.environ.get(LIVE_ALPACA_KEY_ID)
+            self.secret_key = os.environ.get(LIVE_ALPACA_SECRET_KEY)
+            self.trading_client = TradingClient(self.api_key, self.secret_key, paper=False)
+            self.data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
+
+
+    def validate_alpaca_keys(self) -> Tuple[bool, List[str]]:
+        """
+        Validates that Alpaca API keys exist and are valid.
+        """
+        errors = []
+        self.logger.info("Validating Alpaca keys...")
+
+        if self.trading_type == "paper":
+            key_id_name = PAPER_ALPACA_KEY_ID
+            secret_name = PAPER_ALPACA_SECRET_KEY
+        else:
+            key_id_name = LIVE_ALPACA_KEY_ID
+            secret_name = LIVE_ALPACA_SECRET_KEY
+
+        # Check if API keys exist in environment variables
+        api_key = os.environ.get(key_id_name)
+        api_secret = os.environ.get(secret_name)
+
+        if not api_key:
+            self.logger.error(f"{key_id_name} environment variable not found")
+            errors.append(f"{key_id_name} environment variable not found")
+
+        if not api_secret:
+            self.logger.error(f"{secret_name} environment variable not found")
+            errors.append(f"{secret_name} environment variable not found")
+
+        # If keys don't exist, return early
+        if errors:
+            return False, errors
+
+        # Test API connection
+        try:
+            # Get account information
+            account = self.trading_client.get_account()
+
+            # Check if account is active
+            if account.status != "ACTIVE":
+                self.logger.error(f"Alpaca account is not active. Status: {account.status}")
+                errors.append(f"Alpaca account is not active. Status: {account.status}")
+                return False, errors
+
+        except APIError as e:
+            self.logger.error(f"API Error: {str(e)}")
+            errors.append(f"API Error: {str(e)}")
+            return False, errors
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {str(e)}")
+            errors.append(f"Unexpected error: {str(e)}")
+            return False, errors
+
+        return True, []
+
+    def get_shares_count(self):
+        """
+        Gets the number of shares held for the ticker.
+        """
+        positions = self.trading_client.get_all_positions()
+        for position in positions:
+            if position.symbol == self.ticker:
+                return int(position.qty)
+        return 0
+
+    def get_buying_power(self):
+        """Gets the current buying power."""
+        return float(self.trading_client.get_account().buying_power)
+
+    def get_current_price(self):
+        self.logger.debug(f"Getting current price for {self.ticker}")
+        trade = self.data_client.get_stock_latest_trade(StockLatestTradeRequest(symbol_or_symbols=self.ticker))
+        return trade[self.ticker].price
+
+    def get_order_by_id(self, order_id):
+        """
+        Gets an order by its ID.
+        """
+        return self.trading_client.get_order_by_id(order_id)
+
+    def cancel_order(self, order_id):
+      """Cancels an order by ID.
+      
+      Returns:
+          bool: True if cancellation was successful, False otherwise.
+      """
+      try:
+        order = self.trading_client.get_order_by_id(order_id)
+        if int(order.filled_qty) > 0:
+            self.logger.warning("Order is has some shares filled. Press Enter to continue...")
+        if order.status is OrderStatus.FILLED:
+            self.logger.info(f"Order {order_id} is already filled.")
+            return False
+        if order.status is OrderStatus.CANCELED:
+            self.logger.warning(f"Order {order_id} is already canceled. Should be picked up by order update.")
+            return False
+        self.trading_client.cancel_order_by_id(order_id)
+        self.logger.info(f"Order {order_id} cancelled successfully.")
+        return True
+      except Exception as e:
+        self.logger.error(f"Failed to cancel order {order_id}: {e}")
+        return False
+
+    def submit_order(self, order_data):
+      """Submits an order using the alpaca api"""
+      try:
+        order = self.trading_client.submit_order(order_data=order_data)
+        return order
+      except Exception as e:
+        self.logger.error(f"Order submission failed {e}")
+        return None
+
+if __name__ == "__main__":
+    import sys
+
+    print(f"Python executable used: {sys.executable}")
+
+    # Define key sets and validation function calls
+    key_sets = {
+        "Paper": {
+            "paper": True,
+            "key_id": "PAPER_KEY_ID_PLACEHOLDER",
+            "secret_key": "PAPER_SECRET_KEY_PLACEHOLDER",
+        },
+        "Live": {
+            "paper": False,
+            "key_id": "LIVE_KEY_ID_PLACEHOLDER",
+            "secret_key": "LIVE_SECRET_KEY_PLACEHOLDER",
+        },
+    }
+
+    for key_type, keys in key_sets.items():
+        print(f"\nValidating {key_type} keys...")
+        interface = AlpacaInterface()  # Initialize AlpacaInterface
+        is_valid, errors = interface.validate_alpaca_keys()
+        if is_valid:
+            interface.logger.info(f"{key_type} Alpaca keys are valid.")
+        else:
+            interface.logger.error(f"{key_type} Alpaca keys are invalid. Errors: {errors}")
