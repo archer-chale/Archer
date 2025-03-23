@@ -71,7 +71,7 @@ class DecisionMaker:
             #     in
             #input("Approve FILLED order handling? (press Enter to continue)")
             side = self.pending_order.side
-            self.csv_manager.update_order_status2(
+            self.csv_manager.update_order_status(
                 self.pending_order_index, filled_qty, filled_avg_price, side
             )
             self.pending_order = None
@@ -84,7 +84,7 @@ class DecisionMaker:
             self.logger.info(f"Order status: {status}. Filled quantity: {filled_qty}, Filled average price: {filled_avg_price}, Order side: {self.pending_order.side}")
             #input("Approve CANCELED/EXPIRED order handling? (press Enter to continue)")
             side = self.pending_order.side
-            self.csv_manager.update_order_status2(self.pending_order_index, filled_qty, filled_avg_price, side)
+            self.csv_manager.update_order_status(self.pending_order_index, filled_qty, filled_avg_price, side)
             # Clear pending_order_id in CSV
             row = self.csv_manager.get_row_by_index(self.pending_order_index)
             if row:

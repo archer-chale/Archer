@@ -110,16 +110,6 @@ class CSVManager:
             print(f"File not found: {filepath}")
             return []
 
-
-    def get_csv_data(self) -> List[Dict[str, Union[str, float, int]]]:
-        """
-        Get the CSV data.
-
-        Returns:
-            List[Dict[str, Union[str, float, int]]]: The CSV data.
-        """
-        return self.csv_data
-
     def _save_csv_data(self, filepath: str, data: List[Dict[str, Union[str, float, int]]]) -> None:
         """
         Save CSV data to the given filepath. (Internal method - PEP 8 naming)
@@ -146,20 +136,6 @@ class CSVManager:
         """
         self._save_csv_data(self.csv_filepath, self.csv_data)
 
-    def update_row(self, index: int, updates: Dict[str, Union[str, float, int]]) -> None:
-        """
-        Update a row in the CSV data by index. (Public method)
-
-        Args:
-            index (int): The index of the row to update.
-            updates (Dict[str, Union[str, float, int]]): A dictionary of updates to apply to the row.
-        """
-        for i, row in enumerate(self.csv_data):
-            if str(row.get('index')) == str(index):
-                self.csv_data[i].update(updates)
-                return
-        print(f"Row with index {index} not found.")
-
     def get_row_by_index(self, index: int) -> Optional[Dict[str, Union[str, float, int]]]:
         """
         Get a row from the CSV data by index. (Public method)
@@ -175,7 +151,7 @@ class CSVManager:
                 return row
         return None
 
-    def get_total_row_count(self) -> int:
+    def _get_total_row_count(self) -> int:
         """
         Get the total number of rows in the CSV data. (Public method)
 
@@ -184,7 +160,7 @@ class CSVManager:
         """
         return len(self.csv_data)
 
-    def get_column_names(self) -> List[str]:
+    def _get_column_names(self) -> List[str]:
         """
         Get the column names from the CSV file. (Public method)
 
@@ -202,7 +178,7 @@ class CSVManager:
         Returns:
             bool: True if the data is valid, False otherwise.
         """
-        column_names = self.get_column_names()
+        column_names = self._get_column_names()
         if not column_names:
             return True  # Consider empty data as valid
 
@@ -224,16 +200,6 @@ class CSVManager:
                 return False
 
         return True
-
-    def add_row(self, row_data: Dict[str, Union[str, float, int]]) -> None:
-        """
-        Add a new row to the CSV data. (Public method)
-
-        Args:
-            row_data (Dict[str, Union[str, float, int]]): A dictionary representing the new row to add.
-        """
-        self.csv_data.append(row_data)
-        self.modified = True  # Mark as modified whenever a row is added
 
     def get_current_held_shares(self):
         """
@@ -271,91 +237,8 @@ class CSVManager:
             if float(row["sell_price"]) <= current_price and int(row["held_shares"]) > 0
         ]
 
-    def update_order_status(self, index, filled_qty, filled_avg_price, side):
-        """Updates the CSV data when an order is filled or cancelled with a filled quantity > 0.
-        Handles buy and sell orders differently, distributing shares appropriately.
-        """
-        row = self.get_row_by_index(index)
-        if not row:
-            raise ValueError(f"Row with index {index} not found in update_order_status.")
-            
-        time_now = self._get_epoch_time()
-
-        if side == 'buy' and filled_qty > 0:
-            needed_shares = int(row['target_shares']) - int(row['held_shares'])
-            extra_shares = int(filled_qty) - needed_shares
-            
-            # Assign as many shares as needed to the current row
-            assigned_to_this_row = min(int(filled_qty), needed_shares)
-            prev_held_shares = int(row['held_shares'])
-            row['held_shares'] = prev_held_shares + assigned_to_this_row
-            
-            # Calculate unrealized profit based on the difference between filled price and buy price
-            # for the newly purchased shares, and keep any existing unrealized profit
-            if prev_held_shares > 0:
-                # For existing shares, keep the current unrealized profit
-                existing_unrealized = float(row.get('unrealized_profit', 0))
-            else:
-                existing_unrealized = 0.0
-                
-            # Add unrealized profit for the new shares
-            new_unrealized = (float(row['buy_price']) - float(filled_avg_price)) * assigned_to_this_row if filled_avg_price else 0
-            row['unrealized_profit'] = round(existing_unrealized + new_unrealized, 2)
-
-            # Distribute any extra shares to subsequent rows
-            if extra_shares > 0:
-                for i in range(index - 1, -1, -1):  # Iterate backwards
-                    next_row = self.get_row_by_index(i)
-                    if next_row:
-                        assignable = min(extra_shares, int(next_row['target_shares']) - int(next_row['held_shares']))
-                        prev_held_shares = int(next_row['held_shares'])
-                        next_row['held_shares'] = prev_held_shares + assignable
-                        
-                        # Calculate unrealized profit for newly added shares
-                        if prev_held_shares > 0:
-                            existing_unrealized = float(next_row.get('unrealized_profit', 0))
-                        else:
-                            existing_unrealized = 0.0
-                            
-                        # Add unrealized profit for the new shares
-                        new_unrealized = (float(next_row['buy_price']) - float(filled_avg_price)) * assignable
-                        next_row['unrealized_profit'] = round(existing_unrealized + new_unrealized, 2)
-                        next_row['last_action'] = time_now
-                        extra_shares -= assignable
-                        if extra_shares == 0:
-                            break
-
-        elif side == 'sell' and filled_qty > 0:
-            sold_shares = int(filled_qty)
-            sellable = int(row['held_shares'])
-            remaining_shares = sellable - sold_shares
-            row['held_shares'] = max(0, remaining_shares)  # Ensure held_shares doesn't go negative
-            row['profit'] = round(float(row.get('profit', 0)) + float(row.get('unrealized_profit', 0)) + \
-                            (float(filled_avg_price) - float(row['buy_price'])) * min(sellable, sold_shares), 2)
-            row['unrealized_profit'] = 0
-
-            if remaining_shares < 0:
-                extra_sold = abs(remaining_shares)
-                for i in range(index + 1, self.get_total_row_count()):
-                    next_row = self.get_row_by_index(i)
-                    if next_row:
-                        sellable = min(extra_sold, int(next_row['held_shares']))
-                        next_row['held_shares'] = max(0, int(next_row['held_shares']) - sellable)
-                        next_row['profit'] = round(float(next_row.get('profit', 0)) + float(next_row.get('unrealized_profit', 0)) \
-                                             + (float(filled_avg_price) - float(next_row['buy_price'])) * sellable, 2)
-                        next_row['unrealized_profit'] = 0
-                        next_row['last_action'] = time_now
-                        extra_sold -= sellable
-                        if extra_sold == 0:
-                            break
-
-        row['pending_order_id'] = "None"
-        row['last_action'] = time_now
-
-        self.save()
-
     # Instead of distributing shares bottom up for buys and top down for sells, do the opposite
-    def update_order_status2(self, index, filled_qty, filled_avg_price, side):
+    def update_order_status(self, index, filled_qty, filled_avg_price, side):
         """Updates the CSV data when an order is filled or cancelled with a filled quantity > 0.
         Handles buy and sell orders differently, distributing shares appropriately.
         """
@@ -394,7 +277,7 @@ class CSVManager:
 
         elif side == 'sell' and filled_qty > 0:
             while filled_qty > 0:
-                for i in range(self.get_total_row_count()-1, index-1, -1):
+                for i in range(self._get_total_row_count()-1, index-1, -1):
                     current_row = self.get_row_by_index(i)
                     if current_row:
                         sellable = min(filled_qty, int(current_row['held_shares']))
