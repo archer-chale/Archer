@@ -7,6 +7,9 @@ All file paths and directory structures are centralized here for easier maintena
 
 import os
 from typing import Optional
+import pytz
+
+NYC_TZ = pytz.timezone("America/New_York")  # Use NYC timezone for logging
 
 # Brokerage types
 ALPACA_BROKERAGE = "alpaca"
@@ -24,6 +27,7 @@ LIVE_ALPACA_KEY_ID = "ALPACA_API_KEY_ID"
 LIVE_ALPACA_SECRET_KEY = "ALPACA_API_SECRET_KEY"
 
 PROJECT_NAME = "Archer"
+BOT_NAME = "SCALE_T"
 # Determine the base path of your project
 current_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -34,8 +38,9 @@ while not current_path.endswith(PROJECT_NAME):
         raise Exception(f"{PROJECT_NAME} not found in directory structure.")
     current_path = parent_path
 
-# Base directory paths
+# Base directory paths - Current path is now the base directory of Archer
 BASE_DIR = os.path.join(current_path, "data/SCALE_T")
+LOGS_DIR = os.path.join(BASE_DIR, "logs")
 CONFIG_DIR = os.path.join(current_path, "configs")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 TICKER_DATA_BASE = os.path.join(BASE_DIR, "ticker_data")
