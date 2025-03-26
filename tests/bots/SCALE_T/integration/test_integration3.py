@@ -11,7 +11,7 @@ from main.bots.SCALE_T.brokerages import alpaca_interface
 from main.bots.SCALE_T.csv_utils.csv_manager import CSVManager
 from main.bots.SCALE_T.brokerages.alpaca_interface import AlpacaInterface
 from main.bots.SCALE_T.trading.decision_maker import DecisionMaker
-from alpaca.trading.enums import OrderStatus
+from alpaca.trading.enums import OrderStatus, OrderSide
 
 
 class TestScaleTIntegrationMocked(unittest.TestCase):
@@ -96,7 +96,7 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.limit_price = 97.03  # Set the limit price for the mock order
         mock_placed_order.side = 'buy'  # Set the side for the mock order
         mock_placed_order.status = OrderStatus.NEW
-        self.alpaca_interface.submit_order.return_value = mock_placed_order
+        self.alpaca_interface.place_order.return_value = mock_placed_order
 
         # Trigger a buy order with a price update
         price_update_buy = {'type': 'price_update', 'data': 97.03}
@@ -105,13 +105,12 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
 
-        # Assert that submit_order was called with correct parameters
-        self.assertTrue(self.alpaca_interface.submit_order.called)
-        args, kwargs = self.alpaca_interface.submit_order.call_args
-        self.assertEqual(args[0].symbol, "TEST")
-        self.assertEqual(args[0].side, "buy")
-        self.assertEqual(args[0].qty, 36.0)
-        self.assertEqual(args[0].limit_price, 97.03)
+        # Assert that place_order was called with correct parameters
+        self.assertTrue(self.alpaca_interface.place_order.called)
+        args, kwargs = self.alpaca_interface.place_order.call_args
+        self.assertEqual(args[0], OrderSide.BUY)  # side
+        self.assertEqual(args[1], 97.03)  # price
+        self.assertEqual(args[2], 36.0)  # quantity
 
         # Simulate a price increase to trigger cancellation
         price_update_cancel = {'type': 'price_update', 'data': 101.00}
@@ -162,7 +161,7 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.limit_price = 97.03  # Set the limit price for the mock order
         mock_placed_order.side = 'buy'  # Set the side for the mock order
         mock_placed_order.status = OrderStatus.NEW
-        self.alpaca_interface.submit_order.return_value = mock_placed_order
+        self.alpaca_interface.place_order.return_value = mock_placed_order
 
         # Trigger a buy order with a price update
         price_update_buy = {'type': 'price_update', 'data': 97.03}
@@ -171,13 +170,12 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
 
-        # Assert that submit_order was called with correct parameters
-        self.assertTrue(self.alpaca_interface.submit_order.called)
-        args, kwargs = self.alpaca_interface.submit_order.call_args
-        self.assertEqual(args[0].symbol, "TEST")
-        self.assertEqual(args[0].side, "buy")
-        self.assertEqual(args[0].qty, 36.0)
-        self.assertEqual(args[0].limit_price, 97.03)
+        # Assert that place_order was called with correct parameters
+        self.assertTrue(self.alpaca_interface.place_order.called)
+        args, kwargs = self.alpaca_interface.place_order.call_args
+        self.assertEqual(args[0], OrderSide.BUY)  # side
+        self.assertEqual(args[1], 97.03)  # price
+        self.assertEqual(args[2], 36.0)  # quantity
 
         # Trigger a price update to trigger cancellation
         price_update_cancel = {'type': 'price_update', 'data': 99.0}
@@ -245,7 +243,7 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.status = OrderStatus.NEW
         mock_placed_order.side = 'buy'
         mock_placed_order.limit_price = 97.52
-        self.alpaca_interface.submit_order.return_value = mock_placed_order
+        self.alpaca_interface.place_order.return_value = mock_placed_order
 
         # Trigger a buy order with a price update
         price_update_buy = {'type': 'price_update', 'data': 97.52}
@@ -254,13 +252,12 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
 
-        # Assert that submit_order was called with correct parameters
-        self.assertTrue(self.alpaca_interface.submit_order.called)
-        args, kwargs = self.alpaca_interface.submit_order.call_args
-        self.assertEqual(args[0].symbol, "TEST")
-        self.assertEqual(args[0].side, "buy")
-        self.assertEqual(args[0].qty, 12.0)
-        self.assertEqual(args[0].limit_price, 97.52)
+        # Assert that place_order was called with correct parameters
+        self.assertTrue(self.alpaca_interface.place_order.called)
+        args, kwargs = self.alpaca_interface.place_order.call_args
+        self.assertEqual(args[0], OrderSide.BUY)
+        self.assertEqual(args[2], 12.0)
+        self.assertEqual(args[1], 97.52)
 
         # Update alpaca share count before triggering order update
         self.alpaca_interface.get_shares_count.return_value = 18+12 
@@ -307,7 +304,7 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.status = OrderStatus.NEW
         mock_placed_order.side = 'sell'
         mock_placed_order.limit_price = 100.52
-        self.alpaca_interface.submit_order.return_value = mock_placed_order
+        self.alpaca_interface.place_order.return_value = mock_placed_order
 
         # Trigger a sell order with a price update
         price_update_sell = {'type': 'price_update', 'data': 100.52}
@@ -315,13 +312,12 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
 
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
-        # Assert that submit_order was called with correct parameters
-        self.assertTrue(self.alpaca_interface.submit_order.called)
-        args, kwargs = self.alpaca_interface.submit_order.call_args
-        self.assertEqual(args[0].symbol, "TEST")
-        self.assertEqual(args[0].side, "sell")
-        self.assertEqual(args[0].qty, 30.0)
-        self.assertEqual(args[0].limit_price, 100.51)
+        # Assert that place_order was called with correct parameters
+        self.assertTrue(self.alpaca_interface.place_order.called)
+        args, kwargs = self.alpaca_interface.place_order.call_args
+        self.assertEqual(args[0], "sell")
+        self.assertEqual(args[2], 30.0)
+        self.assertEqual(args[1], 100.51)
 
         # Update alpaca share count before triggering order update
         self.alpaca_interface.get_shares_count.return_value = 18
@@ -378,7 +374,7 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.side = 'sell'
         mock_placed_order.limit_price = 100.51
         mock_placed_order.qty = 18
-        self.alpaca_interface.submit_order.return_value = mock_placed_order
+        self.alpaca_interface.place_order.return_value = mock_placed_order
 
         # Trigger a sell order with a price update
         price_update_sell = {'type': 'price_update', 'data': 100.52}
@@ -386,13 +382,12 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
 
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
-        # Assert that submit_order was called with correct parameters
-        self.assertTrue(self.alpaca_interface.submit_order.called)
-        args, kwargs = self.alpaca_interface.submit_order.call_args
-        self.assertEqual(args[0].symbol, "TEST")
-        self.assertEqual(args[0].side, "sell")
-        self.assertEqual(args[0].qty, 18)
-        self.assertEqual(args[0].limit_price, 100.51)
+        # Assert that place_order was called with correct parameters
+        self.assertTrue(self.alpaca_interface.place_order.called)
+        args, kwargs = self.alpaca_interface.place_order.call_args
+        self.assertEqual(args[0], "sell")
+        self.assertEqual(args[2], 18)
+        self.assertEqual(args[1], 100.51)
 
         # Trigger an order update that triggers a fill
         self.alpaca_interface.get_shares_count.return_value = 0
@@ -459,20 +454,19 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.status = OrderStatus.NEW
         mock_placed_order.side = 'buy'
         mock_placed_order.symbol = "TEST"
-        self.alpaca_interface.submit_order.return_value = mock_placed_order
+        self.alpaca_interface.place_order.return_value = mock_placed_order
 
         # Trigger a buy order with a price update
         price_update_buy = {'type': 'price_update', 'data': 99.48}
         self.decision_maker.action_queue.put(price_update_buy)
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
-        # Assert that submit_order was called with correct parameters
-        self.assertTrue(self.alpaca_interface.submit_order.called)
-        args, kwargs = self.alpaca_interface.submit_order.call_args
-        self.assertEqual(args[0].symbol, "TEST")
-        self.assertEqual(args[0].side, "buy")
-        self.assertEqual(args[0].qty, 6.0)
-        self.assertEqual(args[0].limit_price, 99.49)
+        # Assert that place_order was called with correct parameters
+        self.assertTrue(self.alpaca_interface.place_order.called)
+        args, kwargs = self.alpaca_interface.place_order.call_args
+        self.assertEqual(args[0], OrderSide.BUY)
+        self.assertEqual(args[2], 6.0)
+        self.assertEqual(args[1], 99.49)
 
         # Trigger order update but to pending status
         self.alpaca_interface.get_shares_count.return_value = 4  
@@ -516,7 +510,7 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.status = OrderStatus.PENDING_NEW   
         mock_placed_order.side = 'sell'
         mock_placed_order.symbol = "TEST"
-        self.alpaca_interface.submit_order.return_value = mock_placed_order
+        self.alpaca_interface.place_order.return_value = mock_placed_order
 
         #send price update
         price_update_sell = {'type': 'price_update', 'data': 100.51}

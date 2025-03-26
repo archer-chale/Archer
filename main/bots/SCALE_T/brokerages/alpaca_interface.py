@@ -10,10 +10,9 @@ from typing import Tuple, List, Dict, Any, Optional, Callable, Awaitable, Union
 import asyncio
 from dotenv import load_dotenv
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import GetAssetsRequest
-from alpaca.trading.enums import AssetStatus
+from alpaca.trading.requests import GetAssetsRequest, LimitOrderRequest, MarketOrderRequest
+from alpaca.trading.enums import AssetStatus, OrderStatus, OrderSide, OrderType, TimeInForce
 from alpaca.data.live import StockDataStream
-from alpaca.trading.enums import OrderStatus
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockLatestTradeRequest
 from alpaca.data.models import Trade, Quote, Bar
@@ -174,14 +173,77 @@ class AlpacaInterface:
         self.logger.error(f"Failed to cancel order {order_id}: {e}")
         return False
 
-    def submit_order(self, order_data):
-      """Submits an order using the alpaca api"""
+    def place_order(self, side, price, quantity):
+      """Place a buy/sell order with simplified interface.
+      
+      Args:
+          side (str or OrderSide): 'buy'/'sell' or OrderSide enum
+          price (float): Limit price for the order
+          quantity (float): Number of shares to buy/sell, can be fractional
+          
+      Returns:
+          Object: Complete order object if successful, None otherwise
+      """
       try:
-        order = self.trading_client.submit_order(order_data=order_data)
-        return order
+          # Convert side to OrderSide enum if it's a string
+          if isinstance(side, str):
+              order_side = OrderSide.BUY if side.lower() == 'buy' else OrderSide.SELL
+          else:
+              # Assume it's already an OrderSide enum
+              order_side = side
+          
+          # Log order details
+          side_str = "buy" if order_side == OrderSide.BUY else "sell"
+          self.logger.info(f"Placing {side_str} order for {quantity} shares of {self.ticker} at ${price}")
+          
+          # Handle fractional orders with market orders
+          if quantity % 1 > 0.0:
+              self.logger.info(f"Fractional order detected: {quantity} shares. Using market order.")
+              
+              # For market orders, first check if the current price is favorable compared to limit price
+              current_price = self.get_current_price()
+              
+              # For buy orders, ensure current price is less than limit price
+              # For sell orders, ensure current price is greater than limit price
+              price_is_favorable = (order_side == OrderSide.BUY and current_price < price) or \
+                                  (order_side == OrderSide.SELL and current_price > price)
+              
+              if not price_is_favorable:
+                  self.logger.warning(f"Current price ${current_price} is not favorable compared to limit price ${price}. Order not placed.")
+                  return None
+                  
+              # Create market order request for fractional shares
+              order_data = MarketOrderRequest(
+                  symbol=self.ticker,
+                  side=order_side,
+                  qty=quantity,
+                  time_in_force=TimeInForce.DAY,
+                  extended_hours=False  # Market orders can't be extended hours
+              )
+          else:
+              # Create limit order request for whole shares
+              order_data = LimitOrderRequest(
+                  symbol=self.ticker,
+                  limit_price=price,
+                  side=order_side,
+                  qty=quantity,
+                  type=OrderType.LIMIT,
+                  time_in_force=TimeInForce.DAY,
+                  extended_hours=True
+              )
+          
+          # Submit the order directly to trading client
+          order = self.trading_client.submit_order(order_data=order_data)
+          
+          if order.status not in [OrderStatus.ACCEPTED, OrderStatus.NEW, OrderStatus.PENDING_NEW]:
+              self.logger.warning(f"Order may not have been accepted properly. Status: {order.status}")
+              self.logger.debug(f"Order details: {order}")
+          
+          return order
+          
       except Exception as e:
-        self.logger.error(f"Order submission failed {e}")
-        return None
+          self.logger.error(f"An error occurred while placing the order: {e}")
+          return None
 
 if __name__ == "__main__":
     import sys

@@ -208,32 +208,20 @@ class DecisionMaker:
                 self.logger.info("Decision: Placing buy order for 1 share.")
                 self.logger.info(f"Unrealized profit: {buy_has_unrealized_profit}")
                 send_notification("Bot needs help", "SomeDetails")
-                #input("Approve buy order placement for 1 share? (press Enter to continue)")
             else:
                 self.logger.info(f"Decision: Placing buy order. Quantity: {total_qty_to_buy}, Limit price: {limit_price}, Buy price: {buy_price}, Current price: {current_price}")
                 self.logger.info(f"Unrealized profit: {buy_has_unrealized_profit}")
                 send_notification("Bot needs help", "SomeDetails")
-                #input("Approve buy order placement? (press Enter to continue)")
-            order_data = LimitOrderRequest(
-                symbol=self.csv_manager.ticker,
-                qty=str(total_qty_to_buy),
-                side=OrderSide.BUY,
-                type='limit',
-                limit_price=str(limit_price),
-                time_in_force='day',
-                extended_hours=True
-            )
             try:
-                order = self.alpaca_interface.submit_order(order_data)
-                self.logger.info(f"Order placed: {order.id}")
-                if order.status not in [OrderStatus.ACCEPTED, OrderStatus.NEW, OrderStatus.PENDING_NEW]:
-                    self.logger.error(f"Buy order failed: {order}")
+                order = self.alpaca_interface.place_order(OrderSide.BUY, limit_price, total_qty_to_buy)
+                if order is None:
+                    self.logger.error("Failed to place buy order")
                     return False
                 self.pending_order = order
                 self.pending_order_index = int(row_to_buy['index'])
                 row_to_buy['pending_order_id'] = order.id
                 self.csv_manager.save()
-                return True  # Indicate that we placed a buy order
+                return True
             except Exception as e:
                 self.logger.error(f"Error placing buy order: {e}")
                 return False
@@ -269,39 +257,24 @@ class DecisionMaker:
                 self.logger.info(f"Extra profit: {sell_has_extra_profit}")
                 self.logger.info(f"Unrealized profit: {unrealized_profit}")
                 send_notification("Bot needs help", "SomeDetails")
-                #input("Approve sell order placement for 1 share? (press Enter to continue)")
             elif total_qty_to_sell > 1:
                 self.logger.info(f"Decision: Placing sell order. Quantity: {total_qty_to_sell}, Limit price: {limit_price}, Sell price: {sell_price}, Current price: {current_price}")
                 self.logger.info(f"Extra profit: {sell_has_extra_profit}")
                 self.logger.info(f"Unrealized profit: {unrealized_profit}")
                 send_notification("Bot needs help", "SomeDetails")
-                #input("Approve sell order placement? (press Enter to continue)")
-
             self.logger.info("Placing sell order.")
-            order_data = LimitOrderRequest(
-                symbol=self.csv_manager.ticker,
-                qty=str(total_qty_to_sell),
-                side=OrderSide.SELL,
-                type='limit',
-                limit_price=str(limit_price),
-                time_in_force='day',
-                extended_hours = True
-            )
-            self.logger.info(f"Order data:")
             try:
-                order = self.alpaca_interface.submit_order(order_data)
-                if order.status not in [OrderStatus.ACCEPTED, OrderStatus.NEW, OrderStatus.PENDING_NEW, OrderStatus.PARTIALLY_FILLED]:
-                    self.logger.error(f"Sell order status failed: {order.status}")
+                order = self.alpaca_interface.place_order(OrderSide.SELL, limit_price, total_qty_to_sell)
+                if order is None:
+                    self.logger.error("Failed to place sell order")
                     return False
                 self.pending_order = order
                 self.logger.info(f"Row to sell index: {row_to_sell['index']}")
                 self.pending_order_index = int(row_to_sell['index'])
                 row_to_sell['pending_order_id'] = order.id
                 self.csv_manager.save()
-                # #input(f"Placed sell order for {total_qty_to_sell} shares of {self.csv_manager.ticker} at limit price {limit_price}")
                 return True #Indicate that we placed a sell order
             except Exception as e:
-                #input(f"Error placing sell order: {e}")
                 self.logger.error(f"Error placing sell order: {e}")
                 return False
         return False
@@ -315,10 +288,8 @@ class DecisionMaker:
 
     def handle_price_update(self, price):
         current_price = self._filter_price_data(price)
-        # self.logger.info(f"Handling price update. Current price: {current_price}")
         if current_price is None:
             return
-        # print("Checking to cancel order.")
         if self._check_cancel_order(current_price):
             self.logger.info("Price update handled by cancel order check.")
             return  # If order was cancelled, don't proceed further
