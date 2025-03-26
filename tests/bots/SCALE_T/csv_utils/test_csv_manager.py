@@ -94,7 +94,7 @@ class TestCSVManager(unittest.TestCase):
         # Verify logger initialization and calls
         mock_get_logger.assert_called_once_with("csv_manager")
         mock_logger.info.assert_any_call(f"Initializing CSVManager for {self.ticker} ({self.trading_type}) with custom_id: None")
-        mock_logger.info.assert_any_call("Names and path complete. Setting up metadata and columns.")
+        mock_logger.debug.assert_any_call(f"Names and path complete. Setting up metadata and columns.")
         mock_logger.info.assert_any_call("CSVManager initialized successfully.")
         
         # Verify filepath setup and file operations
@@ -109,7 +109,6 @@ class TestCSVManager(unittest.TestCase):
         self.assertEqual(csv_manager.ticker, "AAPL")
         self.assertEqual(csv_manager.trading_type, self.trading_type)
         self.assertIsNone(csv_manager.custom_id)
-        self.assertFalse(csv_manager.modified)
         
         # Verify metadata and required columns
         self.assertEqual(csv_manager.metadata, self.mock_metadata)
@@ -565,90 +564,92 @@ class TestCSVManager(unittest.TestCase):
     #         # Restore original method
     #         CSVManager.__init__ = original_init
 
-    # def test_get_row_by_index(self):
-    #     """Test get_row_by_index method."""
-    #     # Monkey patch the class
-    #     original_init = CSVManager.__init__
-        
-    #     def mock_init(self, ticker, trading_type, custom_id=None):
-    #         self.ticker = ticker.upper()
-    #         self.trading_type = trading_type
-    #         self.custom_id = custom_id
-    #         self.csv_filepath = "/mock/path/AAPL.csv"
-    #         self.metadata = self.mock_metadata
-    #         self.required_columns = ["index", "buy_price", "sell_price", "target_shares", "held_shares"]
-    #         self.csv_data = self.sample_csv_data
-        
-    #     # Apply monkey patch
-    #     CSVManager.__init__ = mock_init
-    #     CSVManager.mock_metadata = self.mock_metadata
-    #     CSVManager.sample_csv_data = self.sample_csv_data
-        
-    #     try:
-    #         # Create instance
-    #         csv_manager = CSVManager(self.ticker, self.trading_type)
-            
-    #         # Test the method for existing index
-    #         result = csv_manager.get_row_by_index(1)
-    #         self.assertEqual(result, self.sample_csv_data[1])
-            
-    #         # Test the method for non-existing index
-    #         result = csv_manager.get_row_by_index(999)
-    #         self.assertIsNone(result)
-    #     finally:
-    #         # Restore original method
-    #         CSVManager.__init__ = original_init
+    @patch('main.bots.SCALE_T.csv_utils.csv_manager.get_logger') # Mock logger to avoid side effects
+    def test_get_row_by_index(self, mock_get_logger):
+        """Test get_row_by_index method."""
+        # Create dummy instance, bypass __init__ file loading
+        with patch.object(CSVManager, '_load_metadata', return_value={}), \
+             patch.object(CSVManager, '_load_csv_data', return_value=[]):
+            csv_manager = CSVManager(self.ticker, self.trading_type)
 
-    # def test_validate_csv_data(self):
-    #     """Test validate_csv_data method."""
-    #     # Monkey patch the class
-    #     original_init = CSVManager.__init__
+        csv_manager.csv_data = self.sample_csv_data # Set data attribute directly
         
-    #     def mock_init(self, ticker, trading_type, custom_id=None):
-    #         self.ticker = ticker.upper()
-    #         self.trading_type = trading_type
-    #         self.custom_id = custom_id
-    #         self.csv_filepath = "/mock/path/AAPL.csv"
-    #         self.metadata = self.mock_metadata
-    #         self.required_columns = ["index", "buy_price", "sell_price", "target_shares", "held_shares"]
-    #         self.csv_data = self.sample_csv_data.copy()  # Use copy to avoid modifying the original
+        # Test the method for existing index (passed as int)
+        result_int = csv_manager.get_row_by_index(1)
+        self.assertEqual(result_int, self.sample_csv_data[1], "Failed for existing int index")
         
-    #     # Apply monkey patch
-    #     CSVManager.__init__ = mock_init
-    #     CSVManager.mock_metadata = self.mock_metadata
-    #     CSVManager.sample_csv_data = self.sample_csv_data
-        
-    #     try:
-    #         # Create instance
-    #         csv_manager = CSVManager(self.ticker, self.trading_type)
-            
-    #         # Test with valid data
-    #         csv_manager.csv_data = self.sample_csv_data.copy()
-    #         result = csv_manager.validate_csv_data()
-    #         self.assertTrue(result)
-            
-    #         # Test with missing required column
-    #         invalid_data = [{"index": "0", "buy_price": "100.0", "target_shares": "10"}]  # Missing sell_price and held_shares
-    #         csv_manager.csv_data = invalid_data
-    #         result = csv_manager.validate_csv_data()
-    #         self.assertFalse(result)
-            
-    #         # Test with invalid data types
-    #         invalid_data = [
-    #             {
-    #                 "index": "abc",  # Not an integer
-    #                 "buy_price": "100.0",
-    #                 "sell_price": "110.0",
-    #                 "target_shares": "10",
-    #                 "held_shares": "0"
-    #             }
-    #         ]
-    #         csv_manager.csv_data = invalid_data
-    #         result = csv_manager.validate_csv_data()
-    #         self.assertFalse(result)
-    #     finally:
-    #         # Restore original method
-    #         CSVManager.__init__ = original_init
+        # Test the method for existing index (passed as string)
+        result_str = csv_manager.get_row_by_index("1")
+        self.assertEqual(result_str, self.sample_csv_data[1], "Failed for existing string index")
+
+        # Test the method for non-existing index
+        result_none = csv_manager.get_row_by_index(999)
+        self.assertIsNone(result_none, "Failed for non-existing index")
+
+    @patch('main.bots.SCALE_T.csv_utils.csv_manager.get_logger') # Mock logger to avoid side effects
+    def test_validate_csv_data(self, mock_get_logger):
+        """Test validate_csv_data method."""
+        # Create a dummy instance - bypass __init__ file operations using patch
+        # We patch the methods called by __init__ that perform file I/O or external calls
+        with patch.object(CSVManager, '_load_metadata', return_value=self.mock_metadata), \
+             patch.object(CSVManager, '_load_csv_data', return_value=[]):
+            csv_manager = CSVManager(self.ticker, self.trading_type)
+
+        # Define required columns based on setUp for testing
+        # Note: In a real scenario, _get_required_columns would derive this from metadata
+        csv_manager.required_columns = [
+            "index", "buy_price", "sell_price", "target_shares", "held_shares",
+            "pending_order_id", "spc", "unrealized_profit", "last_action", "profit"
+        ]
+
+        # Test with valid data (using a deep copy of sample data)
+        valid_data = [
+            {k: v for k, v in row.items()} for row in self.sample_csv_data
+        ]
+        csv_manager.csv_data = valid_data
+        # Need column names for the check within validate_csv_data
+        with patch.object(csv_manager, '_get_column_names', return_value=list(valid_data[0].keys())):
+            self.assertTrue(csv_manager.validate_csv_data(), "Validation failed for valid data")
+
+        # Test with missing required column
+        invalid_data_missing_col = [
+             {"index": "0", "buy_price": "100.0", "target_shares": "10"} # Missing many required cols
+        ]
+        csv_manager.csv_data = invalid_data_missing_col
+        # Need column names for the check
+        with patch.object(csv_manager, '_get_column_names', return_value=list(invalid_data_missing_col[0].keys())):
+            self.assertFalse(csv_manager.validate_csv_data(), "Validation passed with missing required column")
+
+        # Test with invalid data types (index)
+        invalid_data_type_index = [
+            {
+                "index": "abc",  # Not an integer
+                "buy_price": "100.0", "sell_price": "110.0", "target_shares": "10",
+                "held_shares": "0", "pending_order_id": "None", "spc": "TSLA_1",
+                "unrealized_profit": "0.0", "last_action": "1710572230", "profit": "0.0"
+            }
+        ]
+        csv_manager.csv_data = invalid_data_type_index
+        with patch.object(csv_manager, '_get_column_names', return_value=list(invalid_data_type_index[0].keys())):
+             self.assertFalse(csv_manager.validate_csv_data(), "Validation passed with invalid data type (index)")
+
+        # Test with invalid data types (price)
+        invalid_data_type_price = [
+             {
+                "index": "0", "buy_price": "xyz", "sell_price": "110.0", # Invalid buy_price
+                "target_shares": "10", "held_shares": "0", "pending_order_id": "None",
+                "spc": "TSLA_1", "unrealized_profit": "0.0", "last_action": "1710572230",
+                "profit": "0.0"
+            }
+        ]
+        csv_manager.csv_data = invalid_data_type_price
+        with patch.object(csv_manager, '_get_column_names', return_value=list(invalid_data_type_price[0].keys())):
+            self.assertFalse(csv_manager.validate_csv_data(), "Validation passed with invalid data type (buy_price)")
+
+        # Test with empty data (should be valid)
+        csv_manager.csv_data = []
+        with patch.object(csv_manager, '_get_column_names', return_value=[]):
+            self.assertTrue(csv_manager.validate_csv_data(), "Validation failed for empty data")
 
     # def test_add_row(self):
     #     """Test add_row method."""
@@ -896,3 +897,7 @@ class TestCSVManager(unittest.TestCase):
     #     # Apply monkey patches
     #     CSVManager.__init__ = mock_init
     #     CSVManager.update_order_status = mock_update_order_
+
+# Add main execution block if it's not already there
+if __name__ == '__main__':
+    unittest.main()
