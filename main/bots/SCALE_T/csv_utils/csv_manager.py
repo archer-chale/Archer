@@ -52,7 +52,6 @@ class CSVManager:
         # Load metadata and get required columns
         self.metadata = self._load_metadata()
         self.required_columns = self._get_required_columns()
-        self.modified = False  # Initialize modified flag
         self.csv_data = [] # Initialize to empty list
         self.csv_data = self._load_csv_data(self.csv_filepath)
         self.logger.info(f"CSVManager initialized successfully.")
