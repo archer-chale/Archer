@@ -3,140 +3,126 @@ import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
 import json
-import threading
-import time
-from config import load_config
 
 class MessageFirebaseClient:
-    def __init__(self, bot_id, ticker):
+    """
+    A simplified client for subscribing to Firestore message documents.
+    This client allows bots to:
+    1. Subscribe to new messages in the Firestore 'messages' collection
+    2. Process messages using a provided callback function
+    3. Acknowledge receipt of messages
+    """
+    
+    def __init__(self, bot_id):
         """
         Initialize the MessageFirebaseClient.
         
         Args:
-            bot_id: The ID of the bot
-            ticker: The ticker symbol this bot is running for
+            bot_id: The ID of the bot that will process messages
         """
+        # Store the bot's ID for message filtering and acknowledgment
         self.bot_id = bot_id
-        self.ticker = ticker
+        
+        # Get a reference to the Firestore database
         self.firestore_db = firestore.client()
-        self.last_processed_timestamp = time.time()
-        self._subscribe_to_message_topic()
-        logging.info(f"MessageFirebaseClient initialized for bot {bot_id} with ticker {ticker}")
-
-    def _subscribe_to_message_topic(self):
-        """
-        Subscribe to the Firebase Cloud Messaging topic for configuration messages.
-        Note: In a real implementation, we would register a device token and subscribe,
-        but for server-side applications, we'll use Firestore listeners instead.
-        """
-        # The topic that all bots are subscribed to
-        self.topic = 'config-messages'
-        logging.info(f"Bot {self.bot_id} subscribed to topic: {self.topic}")
-
-    def start_message_listener(self):
-        """
-        Start listening for configuration messages from Firestore.
-        This method sets up a background thread to poll for new messages.
-        """
-        logging.info(f"Starting message listener for bot {self.bot_id}")
         
-        # Create a background thread to poll for messages
-        self.running = True
-        self.listener_thread = threading.Thread(target=self._poll_for_messages)
-        self.listener_thread.daemon = True
-        self.listener_thread.start()
+        # Initialize the listener reference to None
+        self.message_listener = None
         
-        return self.listener_thread
+        logging.info(f"MessageFirebaseClient initialized for bot {bot_id}")
 
-    def _poll_for_messages(self):
+    def subscribe(self, callback_function):
         """
-        Poll Firestore for new configuration messages.
-        In production, you would prefer to use a real-time listener,
-        but for this simple implementation, we'll poll.
-        """
-        while self.running:
-            try:
-                # Get all messages for simplicity
-                query = self.firestore_db.collection('messages')
-                messages = query.get()
-                
-                for message in messages:
-                    message_data = message.to_dict()
-                    
-                    # Process all messages for now, just to ensure we're getting messages
-                    self._process_message(message.id, message_data)
-                
-                # Sleep for a few seconds before checking again
-                time.sleep(5)
-                
-            except Exception as e:
-                logging.error(f"Error polling for messages: {str(e)}")
-                time.sleep(10)  # Wait longer after an error
-    
-    def _process_message(self, message_id, message_data):
-        """
-        Process a configuration message.
+        Subscribe to new messages in the Firestore 'messages' collection.
         
         Args:
-            message_id: The ID of the message
-            message_data: The message data dictionary
+            callback_function: A function that will be called when a new message is detected.
+                              This function should accept two parameters:
+                              - message_id: The ID of the message
+                              - message_data: The message data as a dictionary
+        
+        Returns:
+            The Firestore listener object that can be used to unsubscribe later
+        """
+        logging.info(f"Setting up message subscription for bot {self.bot_id}")
+        
+        # Create a callback function that will be triggered when documents change
+        def on_snapshot(col_snapshot, changes, read_time):
+            # Iterate through each change in the collection
+            for change in changes:
+                # Only process newly added documents
+                if change.type.name == 'ADDED':
+                    # Extract the document data and ID
+                    message_data = change.document.to_dict()
+                    message_id = change.document.id
+                    
+                    logging.info(f"New message detected with ID: {message_id}")
+                    
+                    # Call the user-provided callback function with the message details
+                    callback_function(message_id, message_data)
+                    
+                    # Acknowledge the message
+                    self.acknowledge_message(message_id)
+        
+        # Set up the real-time listener on the messages collection
+        messages_ref = self.firestore_db.collection('messages')
+        self.message_listener = messages_ref.on_snapshot(on_snapshot)
+        
+        logging.info(f"Message subscription active for bot {self.bot_id}")
+        
+        return self.message_listener
+    
+    def acknowledge_message(self, message_id):
+        """
+        Acknowledge that this bot has received and processed the message by
+        updating the acknowledgements field in Firestore.
+        
+        Args:
+            message_id: The ID of the message to acknowledge
         """
         try:
-            logging.info(f"Processing message {message_id}")
-            logging.info(f"Message data: {json.dumps(message_data, default=str)}")
+            # Get a reference to the specific message document
+            message_ref = self.firestore_db.collection('messages').document(message_id)
             
-            # Check if this message is targeted for this bot
-            target = message_data.get('target', {})
-            target_type = target.get('type')
-            selected_bots = target.get('selected', [])
+            # Add this bot's ID to the acknowledgements array
+            # ArrayUnion ensures the bot ID is only added once even if called multiple times
+            message_ref.update({
+                'acknowledgements': firestore.ArrayUnion([self.bot_id])
+            })
             
-            should_process = False
+            logging.info(f"Message {message_id} acknowledged by bot {self.bot_id}")
             
-            if target_type == 'ALL':
-                # Message is for all bots
-                should_process = True
-                logging.info(f"Message {message_id} is for ALL bots")
-            elif target_type == 'SELECTED' and self.bot_id in selected_bots:
-                # Message is only for selected bots, and we're one of them
-                should_process = True
-                logging.info(f"Message {message_id} is for SELECTED bots including {self.bot_id}")
-            else:
-                logging.info(f"Message {message_id} is not targeted for this bot. Skipping.")
-            
-            if should_process:
-                # Extract the configuration from the message
-                config = message_data.get('config', {})
-                logging.info(f"Configuration data: {json.dumps(config, default=str)}")
-                
-                # For now, just log the message content
-                # In a full implementation, we would process the configuration
-                # and update the bot's behavior accordingly
-                
-                # TODO: Implement acknowledgement in the future
-                logging.info(f"Successfully processed message {message_id}")
-                
         except Exception as e:
-            logging.error(f"Error processing message {message_id}: {str(e)}")
+            logging.error(f"Error acknowledging message {message_id}: {str(e)}")
     
-    def stop(self):
-        """Stop the message listener"""
-        self.running = False
-        if hasattr(self, 'listener_thread') and self.listener_thread.is_alive():
-            self.listener_thread.join(timeout=2)
-        logging.info(f"Message listener for bot {self.bot_id} stopped")
+    def unsubscribe(self):
+        """
+        Unsubscribe from Firestore message notifications.
+        Call this method when shutting down to clean up resources.
+        """
+        if self.message_listener:
+            # Detach the listener to stop receiving updates
+            self.message_listener.unsubscribe()
+            self.message_listener = None
+            
+            logging.info(f"Message listener for bot {self.bot_id} unsubscribed")
 
-# Function to initialize the MessageFirebaseClient
-def initialize_message_client(bot_id, ticker):
-    """
-    Initialize and start the message client.
+# # Example usage:
+# """
+# # Initialize the client
+# client = MessageFirebaseClient('my-bot-id')
+
+# # Define your callback function
+# def process_message(message_id, message_data):
+#     # Process the message according to your bot's logic
+#     print(f"Processing message: {message_id}")
+#     # ...your processing logic here...
     
-    Args:
-        bot_id: The ID of the bot
-        ticker: The ticker symbol this bot is running for
-        
-    Returns:
-        The initialized MessageFirebaseClient instance
-    """
-    message_client = MessageFirebaseClient(bot_id, ticker)
-    message_client.start_message_listener()
-    return message_client
+#     # Acknowledge the message when done
+#     client.acknowledge_message(message_id)
+
+# # Subscribe to messages with your callback
+# listener = client.subscribe(process_message)
+
+# # When shutting down:
+# # client.unsubscribe()
