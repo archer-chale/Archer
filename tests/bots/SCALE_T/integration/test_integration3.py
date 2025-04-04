@@ -8,7 +8,7 @@ import time
 import pytest
 
 from main.bots.SCALE_T.brokerages import alpaca_interface
-from main.bots.SCALE_T.csv_utils.csv_manager import CSVManager
+from main.bots.SCALE_T.csv_utils.csv_service import CSVService
 from main.bots.SCALE_T.brokerages.alpaca_interface import AlpacaInterface
 from main.bots.SCALE_T.trading.decision_maker import DecisionMaker
 from alpaca.trading.enums import OrderStatus, OrderSide
@@ -61,10 +61,10 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         cls.mock_shares_count = 0
         cls.alpaca_interface.get_shares_count.return_value = cls.mock_shares_count
 
-        # Instantiate CSVManager and DecisionMaker
-        cls.csv_manager = CSVManager("TEST", "paper")
+        # Instantiate CSVService and DecisionMaker
+        cls.csv_service = CSVService("TEST", "paper")
         cls.decision_maker = DecisionMaker(
-            csv_manager=cls.csv_manager, alpaca_interface=cls.alpaca_interface
+            csv_service=cls.csv_service, alpaca_interface=cls.alpaca_interface
         )
 
         # Create and start the consumer thread
@@ -138,11 +138,11 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         time.sleep(0.5)
 
         # # Check that the CSV data was not updated (shares remain 0)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 0)
-        self.assertIsNone(self.csv_manager.get_pending_order_info())
+        self.assertEqual(self.csv_service.get_current_held_shares(), 0)
+        self.assertIsNone(self.csv_service.get_pending_order_info())
 
         # Check csv data on index 0
-        row_zero = self.csv_manager.get_row_by_index(0)
+        row_zero = self.csv_service.get_row_by_index(0)
         self.assertEqual(row_zero["held_shares"], '0')
         self.assertEqual(row_zero["pending_order_id"], 'None')
         self.assertEqual(row_zero["unrealized_profit"], '0.0')
@@ -203,27 +203,27 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
         # Check that the CSV data was not updated (shares remain 0)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 18)
-        self.assertIsNone(self.csv_manager.get_pending_order_info())
+        self.assertEqual(self.csv_service.get_current_held_shares(), 18)
+        self.assertIsNone(self.csv_service.get_pending_order_info())
 
         # print the top 6 indexes of the csv file
         for i in range(6):
-            print(self.csv_manager.get_row_by_index(i))
+            print(self.csv_service.get_row_by_index(i))
 
         # Check csv data at index 0, 2, 4
-        row_zero = self.csv_manager.get_row_by_index(1)
+        row_zero = self.csv_service.get_row_by_index(1)
         self.assertEqual(row_zero["held_shares"], 6)
         self.assertEqual(row_zero["pending_order_id"], 'None')
         self.assertEqual(row_zero["unrealized_profit"], 11.82)
         self.assertEqual(row_zero["profit"], '0.0')
 
-        row_two = self.csv_manager.get_row_by_index(2)
+        row_two = self.csv_service.get_row_by_index(2)
         self.assertEqual(row_two["held_shares"], 6)
         self.assertEqual(row_two["pending_order_id"], 'None')
         self.assertEqual(row_two["unrealized_profit"], 8.82)
         self.assertEqual(row_two["profit"], '0.0')
 
-        row_four = self.csv_manager.get_row_by_index(3)
+        row_four = self.csv_service.get_row_by_index(3)
         self.assertEqual(row_four["held_shares"], '0')
         self.assertEqual(row_four["pending_order_id"], 'None')
         self.assertEqual(row_four["unrealized_profit"], '0.0')
@@ -275,17 +275,17 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
         # Check that the CSV data was updated (shares remain 0)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 30)
-        self.assertIsNone(self.csv_manager.get_pending_order_info())
+        self.assertEqual(self.csv_service.get_current_held_shares(), 30)
+        self.assertIsNone(self.csv_service.get_pending_order_info())
 
         # Check csv data at index 3, 4
-        row_three = self.csv_manager.get_row_by_index(3)
+        row_three = self.csv_service.get_row_by_index(3)
         self.assertEqual(row_three["held_shares"], 6)
         self.assertEqual(row_three["pending_order_id"], 'None')
         self.assertEqual(row_three["unrealized_profit"], 2.94)
         self.assertEqual(row_three["profit"], '0.0')
 
-        row_four = self.csv_manager.get_row_by_index(4)
+        row_four = self.csv_service.get_row_by_index(4)
         self.assertEqual(row_four["held_shares"], 6)
         self.assertEqual(row_four["pending_order_id"], 'None')
         self.assertEqual(row_four["unrealized_profit"], 0)
@@ -344,17 +344,17 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
         # Check that the CSV data was not updated (shares remain 18)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 18)
-        self.assertIsNone(self.csv_manager.get_pending_order_info())
+        self.assertEqual(self.csv_service.get_current_held_shares(), 18)
+        self.assertIsNone(self.csv_service.get_pending_order_info())
 
         # Check csv data at index 2, 3
-        row_two = self.csv_manager.get_row_by_index(2)
+        row_two = self.csv_service.get_row_by_index(2)
         self.assertEqual(row_two["held_shares"], 6)
         self.assertEqual(row_two["pending_order_id"], 'None')
         self.assertEqual(row_two["unrealized_profit"], 8.82)
         self.assertEqual(row_two["profit"], '0.0')
 
-        row_three = self.csv_manager.get_row_by_index(3)
+        row_three = self.csv_service.get_row_by_index(3)
         self.assertEqual(row_three["held_shares"], 0)
         self.assertEqual(row_three["pending_order_id"], 'None')
         self.assertEqual(row_three["unrealized_profit"], 0.0)
@@ -402,41 +402,41 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
         # Check that the CSV data was updated (shares remain 18)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 0)
-        self.assertIsNone(self.csv_manager.get_pending_order_info())
+        self.assertEqual(self.csv_service.get_current_held_shares(), 0)
+        self.assertIsNone(self.csv_service.get_pending_order_info())
 
         # Check csv data at index 0,1,2,3,4,5
-        row_zero = self.csv_manager.get_row_by_index(0)
+        row_zero = self.csv_service.get_row_by_index(0)
         self.assertEqual(row_zero["held_shares"], 0)
         self.assertEqual(row_zero["pending_order_id"], 'None')
         self.assertEqual(row_zero["unrealized_profit"], 0.0)
         self.assertEqual(row_zero["profit"], round(6*(100.51-97.03), 2))
 
-        row_one = self.csv_manager.get_row_by_index(1)
+        row_one = self.csv_service.get_row_by_index(1)
         self.assertEqual(row_one["held_shares"], 0)
         self.assertEqual(row_one["pending_order_id"], 'None')
         self.assertEqual(row_one["unrealized_profit"], 0.0)
         self.assertEqual(row_one["profit"], round(6*(100.51-97.03), 2))
 
-        row_two = self.csv_manager.get_row_by_index(2)
+        row_two = self.csv_service.get_row_by_index(2)
         self.assertEqual(row_two["held_shares"], 0)
         self.assertEqual(row_two["pending_order_id"], 'None')
         self.assertEqual(row_two["unrealized_profit"], 0.0)
         self.assertEqual(row_two["profit"], round(6*(100.51-97.03), 2))
 
-        row_three = self.csv_manager.get_row_by_index(3)
+        row_three = self.csv_service.get_row_by_index(3)
         self.assertEqual(row_three["held_shares"], 0)
         self.assertEqual(row_three["pending_order_id"], 'None')
         self.assertEqual(row_three["unrealized_profit"], 0.0)
         self.assertEqual(row_three["profit"], round(6*(100.51-97.52), 2))
 
-        row_four = self.csv_manager.get_row_by_index(4)
+        row_four = self.csv_service.get_row_by_index(4)
         self.assertEqual(row_four["held_shares"], 0)
         self.assertEqual(row_four["pending_order_id"], 'None')
         self.assertEqual(row_four["unrealized_profit"], 0.0)
         self.assertEqual(row_four["profit"], round(6*(100.51-97.52), 2))
         
-        row_five = self.csv_manager.get_row_by_index(5)
+        row_five = self.csv_service.get_row_by_index(5)
         self.assertEqual(row_five["held_shares"], '0')
         self.assertEqual(row_five["pending_order_id"], 'None')
         self.assertEqual(row_five["unrealized_profit"], '0.0')
@@ -481,18 +481,18 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
         # Check that the CSV data was not updated (shares remain 4)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 4)
-        self.assertIsNone(self.csv_manager.get_pending_order_info())
+        self.assertEqual(self.csv_service.get_current_held_shares(), 4)
+        self.assertIsNone(self.csv_service.get_pending_order_info())
 
         # Check csv data at index 0
-        row_zero = self.csv_manager.get_row_by_index(0)
+        row_zero = self.csv_service.get_row_by_index(0)
         self.assertEqual(row_zero["held_shares"], 4)
         self.assertEqual(row_zero["pending_order_id"], 'None')
         self.assertEqual(row_zero["unrealized_profit"], 0.04)
         self.assertEqual(row_zero["profit"], round(6*(100.51-97.03), 2))
 
         # Check csv data at index 1
-        row_one = self.csv_manager.get_row_by_index(1)
+        row_one = self.csv_service.get_row_by_index(1)
         self.assertEqual(row_one["held_shares"], 0)
         self.assertEqual(row_one["pending_order_id"], 'None')
         self.assertEqual(row_one["unrealized_profit"], 0.0)
@@ -534,8 +534,8 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
         # Check that the CSV data was updated (shares are now 0)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 0)
-        self.assertIsNone(self.csv_manager.get_pending_order_info())
+        self.assertEqual(self.csv_service.get_current_held_shares(), 0)
+        self.assertIsNone(self.csv_service.get_pending_order_info())
 
 # TO RUN: pytest -s --maxfail=1 tests/bots/SCALE_T/integration/test_integrations2.py
 

@@ -7,7 +7,7 @@ In a classless implementation, this module focuses on the initial setup and orch
 
 import argparse
 
-from main.bots.SCALE_T.csv_utils.csv_manager import CSVManager
+from main.bots.SCALE_T.csv_utils.csv_service import CSVService
 from main.bots.SCALE_T.brokerages.alpaca_interface import AlpacaInterface
 from main.bots.SCALE_T.trading.decision_maker import DecisionMaker
 from main.bots.SCALE_T.common.logging_config import get_logger
@@ -25,9 +25,9 @@ def run_engine(ticker: str, trading_type: str):
     logger = get_logger("engine")
     logger.info("Starting engine with ticker: {ticker} and trading type: {trading_type}")
 
-    csv_manager = CSVManager(ticker=ticker, trading_type=trading_type)
+    csv_service = CSVService(ticker=ticker, trading_type=trading_type)
     alpaca_interface = AlpacaInterface(trading_type=trading_type, ticker=ticker)
-    decision_maker = DecisionMaker(csv_manager=csv_manager, alpaca_interface=alpaca_interface)
+    decision_maker = DecisionMaker(csv_service=csv_service, alpaca_interface=alpaca_interface)
     decision_maker.launch_action_producer_threads()
     logger.info("Engine Started")
     decision_maker.consume_actions()

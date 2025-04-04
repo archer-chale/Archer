@@ -7,7 +7,7 @@ import threading
 import time
 import pytest
 
-from main.bots.SCALE_T.csv_utils.csv_manager import CSVManager
+from main.bots.SCALE_T.csv_utils.csv_service import CSVService
 from main.bots.SCALE_T.brokerages.alpaca_interface import AlpacaInterface
 from main.bots.SCALE_T.trading.decision_maker import DecisionMaker
 from alpaca.trading.enums import OrderStatus, OrderSide
@@ -60,10 +60,10 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         cls.mock_shares_count = 0
         cls.alpaca_interface.get_shares_count.return_value = cls.mock_shares_count
 
-        # Instantiate CSVManager and DecisionMaker
-        cls.csv_manager = CSVManager("TEST", "paper")
+        # Instantiate CSVService and DecisionMaker
+        cls.csv_service = CSVService("TEST", "paper")
         cls.decision_maker = DecisionMaker(
-            csv_manager=cls.csv_manager, alpaca_interface=cls.alpaca_interface
+            csv_service=cls.csv_service, alpaca_interface=cls.alpaca_interface
         )
 
         # Create and start the consumer thread
@@ -138,8 +138,8 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         time.sleep(0.5)
 
         # Check that the CSV data was not updated (shares remain 0)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 0)
-        self.assertIsNone(self.csv_manager.get_pending_order_info())
+        self.assertEqual(self.csv_service.get_current_held_shares(), 0)
+        self.assertIsNone(self.csv_service.get_pending_order_info())
 
     @pytest.mark.order(102)
     @patch('main.bots.SCALE_T.trading.decision_maker.send_notification')
@@ -179,8 +179,8 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
         # Check that the CSV data was updated (shares remain 0)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 0)
-        pending_order_info = self.csv_manager.get_pending_order_info()
+        self.assertEqual(self.csv_service.get_current_held_shares(), 0)
+        pending_order_info = self.csv_service.get_pending_order_info()
         self.assertEqual(pending_order_info['order_id'], mock_placed_order.id)
         self.assertEqual(pending_order_info['index'], 5)
 
@@ -215,12 +215,12 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
         # Check that the CSV data was not updated (shares remain 0)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 3)
-        self.assertIsNone(self.csv_manager.get_pending_order_info())
+        self.assertEqual(self.csv_service.get_current_held_shares(), 3)
+        self.assertIsNone(self.csv_service.get_pending_order_info())
 
         # print the top 6 indexes of the csv file
         for i in range(6):
-            print(self.csv_manager.get_row_by_index(i))
+            print(self.csv_service.get_row_by_index(i))
 
     @pytest.mark.order(104)
     @patch('main.bots.SCALE_T.trading.decision_maker.send_notification')
@@ -266,8 +266,8 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
         # Check that the CSV data was updated (shares remain 0)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 5)
-        self.assertIsNone(self.csv_manager.get_pending_order_info())
+        self.assertEqual(self.csv_service.get_current_held_shares(), 5)
+        self.assertIsNone(self.csv_service.get_pending_order_info())
 
     @pytest.mark.order(105)
     @patch('main.bots.SCALE_T.trading.decision_maker.send_notification')
@@ -317,8 +317,8 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
         # Check that the CSV data was not updated (shares remain 5)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 5)
-        self.assertIsNone(self.csv_manager.get_pending_order_info())
+        self.assertEqual(self.csv_service.get_current_held_shares(), 5)
+        self.assertIsNone(self.csv_service.get_pending_order_info())
 
     @pytest.mark.order(106)
     @patch('main.bots.SCALE_T.trading.decision_maker.send_notification')
@@ -360,8 +360,8 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
         # Check that the CSV data was not updated (shares remain 5)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 5)
-        pending_order = self.csv_manager.get_pending_order_info()
+        self.assertEqual(self.csv_service.get_current_held_shares(), 5)
+        pending_order = self.csv_service.get_pending_order_info()
         self.assertEqual(pending_order['order_id'], "test_order_id_1")
 
     @pytest.mark.order(107)
@@ -373,7 +373,7 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
 
         # Print first 6 rows
         for i in range(6):
-            print(self.csv_manager.get_row_by_index(i))
+            print(self.csv_service.get_row_by_index(i))
         # Return share count from alpaca as 0
         self.alpaca_interface.get_shares_count.return_value = 0
 
@@ -393,8 +393,8 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
         # Check that the CSV data was updated (shares are now 0)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 0)
-        self.assertIsNone(self.csv_manager.get_pending_order_info())
+        self.assertEqual(self.csv_service.get_current_held_shares(), 0)
+        self.assertIsNone(self.csv_service.get_pending_order_info())
 
     @pytest.mark.order(108)
     @patch('main.bots.SCALE_T.trading.decision_maker.send_notification')
@@ -438,8 +438,8 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         time.sleep(0.5)
 
         # Check that the CSV data was updated (shares are now 0)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 50)
-        self.assertIsNone(self.csv_manager.get_pending_order_info())
+        self.assertEqual(self.csv_service.get_current_held_shares(), 50)
+        self.assertIsNone(self.csv_service.get_pending_order_info())
 
         # Time to sell everything
         mock_placed_order.status = OrderStatus.ACCEPTED
@@ -463,7 +463,7 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         self.decision_maker.action_queue.put(order_update)
 
         time.sleep(0.5)
-        self.assertEqual(self.csv_manager.get_current_held_shares(), 0)
+        self.assertEqual(self.csv_service.get_current_held_shares(), 0)
 
 
 # TO RUN: pytest -s --maxfail=1 tests/bots/SCALE_T/integration/test_integrations2.py
