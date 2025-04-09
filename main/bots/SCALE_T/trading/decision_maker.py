@@ -2,7 +2,7 @@ import queue
 import threading
 import asyncio
 import sys
-from alpaca.trading.enums import OrderStatus
+from alpaca.trading.enums import OrderStatus, OrderType
 from alpaca.trading.requests import LimitOrderRequest
 from alpaca.trading.enums import OrderSide
 from alpaca.trading.stream import TradingStream
@@ -113,8 +113,17 @@ class DecisionMaker:
 
     def _check_cancel_order(self, current_price):
         if self.pending_order:
-            if self.pending_order.side == 'buy' and current_price >= float(self.pending_order.limit_price) * 1.0025:
-                self.logger.info(f"Decision: Cancelling buy order. Order ID: {self.pending_order.id}, Limit price: {self.pending_order.limit_price}, Current price: {current_price}")
+            order_price = 0
+            if self.pending_order.order_type == OrderType.MARKET:
+                associated_csv_line = self.csv_service.get_row_by_index(self.pending_order_index)
+                if self.pending_order.side == 'buy':
+                    order_price = associated_csv_line["buy_price"]
+                else :
+                    order_price = associated_csv_line["sell_price"]
+            else :
+                order_price = self.pending_order.limit_price
+            if self.pending_order.side == 'buy' and current_price >= float(order_price) * 1.0025:
+                self.logger.info(f"Decision: Cancelling buy order. Order ID: {self.pending_order.id}, Expected price: {order_price}, Current price: {current_price}")
                 send_notification("Bot needs help", "SomeDetails")
                 #input("Approve buy order cancellation? (press Enter to continue)")
                 cancel_success = self.alpaca_interface.cancel_order(self.pending_order.id)
@@ -125,8 +134,8 @@ class DecisionMaker:
                     return True  # Still indicate cancellation was attempted
                 self.logger.info(f"Cancelled buy order due to price increase. Order ID: {self.pending_order.id}")
                 return True  # Indicate that a cancellation occurred
-            elif self.pending_order.side == 'sell' and current_price <= float(self.pending_order.limit_price) * 0.9975:
-                self.logger.info(f"Decision: Cancelling sell order. Order ID: {self.pending_order.id}, Limit price: {self.pending_order.limit_price}, Current price: {current_price}")
+            elif self.pending_order.side == 'sell' and current_price <= float(order_price) * 0.9975:
+                self.logger.info(f"Decision: Cancelling sell order. Order ID: {self.pending_order.id}, Expected price: {order_price}, Current price: {current_price}")
                 send_notification("Bot needs help", "SomeDetails")
                 #input("Approve sell order cancellation? (press Enter to continue)")
                 cancel_success = self.alpaca_interface.cancel_order(self.pending_order.id)
@@ -195,7 +204,10 @@ class DecisionMaker:
             elif self.pending_order and self.pending_order.side == 'buy':
                 self.logger.debug("Pending buy order found. Skipping buy order placement.")
                 return False
+
             total_qty_to_buy = sum(float(row['target_shares']) - float(row['held_shares']) for row in rows_to_buy)
+            if total_qty_to_buy % 1 > 0:
+                total_qty_to_buy = int(total_qty_to_buy)
             # Find the row with the lowest buy_price (highest index)
             row_to_buy = rows_to_buy[-1]
             buy_price = float(row_to_buy['buy_price'])
@@ -247,6 +259,8 @@ class DecisionMaker:
             elif self.pending_order and self.pending_order.side == 'sell':
                 return False
             total_qty_to_sell = sum(float(row['held_shares']) for row in rows_to_sell)
+            if total_qty_to_sell % 1 > 0:
+                total_qty_to_sell = int(total_qty_to_sell)
             row_to_sell = rows_to_sell[0]
             sell_price = float(row_to_sell['sell_price'])
             limit_price = round(max(current_price - 0.01, sell_price), 2)

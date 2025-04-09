@@ -1,7 +1,11 @@
 from typing import Optional
 from ..common.constants import get_ticker_filepath
 from typing import List, Dict, Union
-import csv
+import csv, os, json, time
+
+from main.bots.SCALE_T.common.constants import (
+    METADATA_FILE
+)
 
 class CSVCore:
     """
@@ -9,13 +13,16 @@ class CSVCore:
     This class provides core functionality that can be extended by specific CSV handlers.
     """
     
-    def __init__(self, ticker: str, trading_type: str, custom_id: Optional[str] = None, file_path: Optional[str] = None):
+    def __init__(self, ticker: str, trading_type: str, custom_id: Optional[str] = None):
         self.ticker = ticker.upper()
         self.trading_type = trading_type
         self.custom_id = custom_id
-        self.csv_filepath = get_ticker_filepath(self.ticker, self.trading_type, self.custom_id)    
+        self.csv_filepath = get_ticker_filepath(self.ticker, self.trading_type, self.custom_id)
+        self.metadata = self._load_metadata()
+        self.required_columns = self._get_required_columns()
+        self.csv_data = [] # Initialize to empty on start
 
-    def _load_csv_data(self, filepath: str) -> List[Dict[str, Union[str, float, int]]]:
+    def _load_csv_data(self) -> List[Dict[str, Union[str, float, int]]]:
         """
         Load CSV data from the given filepath. (PEP 8 naming for internal method)
 
@@ -26,16 +33,19 @@ class CSVCore:
             List[Dict[str, Union[str, float, int]]]: A list of dictionaries representing the CSV data.
         """
         try:
-            with open(filepath, 'r') as f:
+            with open(self.csv_filepath, 'r') as f:
                 reader = csv.DictReader(f)
                 data = list(reader)
-            
+            self.csv_data = data
             if not self.validate_csv_data():
                 raise ValueError("CSV data validation failed.")
             return data
         except FileNotFoundError:
-            print(f"File not found: {filepath}")
-            return []
+            print(f"File not found: {self.csv_filepath}")
+            raise FileNotFoundError(f"File not found: {self.csv_filepath}")
+        except Exception as e:
+            print(f"Error loading CSV data: {e}")
+            raise Exception(f"Error loading CSV data: {e}")
 
     def _load_metadata(self):
         """Loads the metadata JSON file."""

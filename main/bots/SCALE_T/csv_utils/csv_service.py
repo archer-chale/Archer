@@ -5,16 +5,9 @@ This module provides functionality to manage CSV files containing trading data.
 It handles reading, validation, and updating of CSV data using dictionary-based operations.
 """
 
-import csv
-import json
-import os
-import time
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 from .csv_core import CSVCore
 
-from main.bots.SCALE_T.common.constants import (
-    METADATA_FILE
-)
 
 from main.bots.SCALE_T.common.logging_config import get_logger
 
@@ -40,11 +33,12 @@ class CSVService(CSVCore):
         super().__init__(ticker, trading_type, custom_id)
         self.logger = get_logger("csv_service")
         self.logger.info(f"Initializing CSVService for {self.ticker} ({self.trading_type}) with custom_id: {self.custom_id}")
-        # Load metadata and get required columns
-        self.metadata = self._load_metadata()
-        self.required_columns = self._get_required_columns()
+        # Load metadata and get required columns``
         self.csv_data = [] # Initialize to empty list
-        self.csv_data = self._load_csv_data(self.csv_filepath)
+        self._load_csv_data()
+        if not self.csv_data:
+            self.logger.error("CSV data not found. CSVService initialization failed.")
+            raise ValueError("CSV data not found. CSVService initialization failed.")
         self.logger.info(f"CSVService initialized successfully.")
 
     def get_row_by_index(self, index: int) -> Optional[Dict[str, Union[str, float, int]]]:
@@ -78,7 +72,7 @@ class CSVService(CSVCore):
         total_held_shares = 0
         for row in self.csv_data:
             total_held_shares += float(row.get('held_shares', 0))  # Default to 0 if not found or invalid
-        return total_held_shares
+        return round(total_held_shares, 5)
 
     def get_pending_order_info(self):
         """
@@ -125,7 +119,7 @@ class CSVService(CSVCore):
                         if assignable > 0:
                             self.logger.debug(f"Assigning {assignable} shares to index {i}, filled_qty: {filled_qty}")
                             prev_held_shares = float(current_row['held_shares'])
-                            current_row['held_shares'] = prev_held_shares + assignable
+                            current_row['held_shares'] = round(prev_held_shares + assignable, 5)
                             filled_qty -= assignable
                             self.logger.debug(f"After assignment, filled_qty: {filled_qty}")
                             #update unrealized profit
@@ -151,7 +145,7 @@ class CSVService(CSVCore):
                         if sellable > 0:
                             self.logger.debug(f"Selling {sellable} shares from index {i}, filled_qty: {filled_qty}")
                             prev_held_shares = float(current_row['held_shares'])
-                            current_row['held_shares'] = prev_held_shares - sellable
+                            current_row['held_shares'] = round(prev_held_shares - sellable, 5)
                             filled_qty -= sellable
                             prev_unrealised_profit = float(current_row.get('unrealized_profit', 0))
                             current_row['unrealized_profit'] = 0.0
