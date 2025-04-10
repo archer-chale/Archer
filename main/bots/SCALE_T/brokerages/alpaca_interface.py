@@ -150,7 +150,7 @@ class AlpacaInterface:
         """
         return self.trading_client.get_order_by_id(order_id)
 
-    def cancel_order(self, order_id):
+    def cancel_order(self, order_id: str) -> bool:
       """Cancels an order by ID.
       
       Returns:
@@ -158,14 +158,17 @@ class AlpacaInterface:
       """
       try:
         order = self.trading_client.get_order_by_id(order_id)
-        if int(order.filled_qty) > 0:
-            self.logger.warning("Order is has some shares filled. Press Enter to continue...")
+        
         if order.status is OrderStatus.FILLED:
             self.logger.info(f"Order {order_id} is already filled.")
             return False
-        if order.status is OrderStatus.CANCELED:
+        elif order.status is OrderStatus.CANCELED:
             self.logger.warning(f"Order {order_id} is already canceled. Should be picked up by order update.")
             return False
+        
+        if int(order.filled_qty) > 0:
+            self.logger.warning(f"Order {order_id} has some shares filled.")
+
         self.trading_client.cancel_order_by_id(order_id)
         self.logger.info(f"Order {order_id} cancelled successfully.")
         return True
