@@ -17,8 +17,8 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CloseIcon from '@mui/icons-material/Close';
-import { IConfigMessage } from '../../../types/pubsubmessage.type';
-import { useMessage } from '../../../hooks/useMessage.hook';
+import { IConfigMessage } from '../../types/pubsubmessage.type';
+import { useMessage } from '../../hooks/useMessage.hook';
 
 /**
  * Props for the MessageCard component

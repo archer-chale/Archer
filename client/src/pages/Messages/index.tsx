@@ -10,8 +10,8 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { useMessage } from '../../hooks/useMessage.hook';
-import ViewAllMessages from './components/viewAllMessages.component';
-import CreateMessageDialog from './components/createMessageDialog.component';
+import ViewAllMessages from '../../components/messages/viewAllMessages.component';
+import CreateMessageDialog from '../../components/messages/createMessageDialog.component';
 
 /**
  * Messages page component

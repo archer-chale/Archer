@@ -18,9 +18,9 @@ import {
   CircularProgress,
   Autocomplete
 } from '@mui/material';
-import { IConfigMessage, IMessageTarget } from '../../../types/pubsubmessage.type';
-import { useMessage } from '../../../hooks/useMessage.hook';
-import { useServicesStore } from '../../../store/services.store';
+import { IConfigMessage, IMessageTarget } from '../../types/pubsubmessage.type';
+import { useMessage } from '../../hooks/useMessage.hook';
+import { useServicesStore } from '../../store/services.store';
 
 /**
  * Props for the CreateMessageDialog component

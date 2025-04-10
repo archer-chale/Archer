@@ -14,8 +14,8 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { IConfigMessage, IConfigMessageSimple } from '../../../types/pubsubmessage.type';
-import { useMessage } from '../../../hooks/useMessage.hook';
+import { IConfigMessage, IConfigMessageSimple } from '../../types/pubsubmessage.type';
+import { useMessage } from '../../hooks/useMessage.hook';
 
 /**
  * Props for the ViewAllMessages component
