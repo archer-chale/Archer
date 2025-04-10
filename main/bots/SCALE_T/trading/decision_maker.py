@@ -2,12 +2,14 @@ import queue
 import threading
 import asyncio
 import sys
+from typing import Tuple
 from alpaca.trading.enums import OrderStatus, OrderType
 from alpaca.trading.requests import LimitOrderRequest
 from alpaca.trading.enums import OrderSide
 from alpaca.trading.stream import TradingStream
 from alpaca.data.live.stock import StockDataStream
 from alpaca.data.enums import DataFeed
+from alpaca.data.models.trades import Trade
 
 from main.bots.SCALE_T.common.logging_config import get_logger
 from main.bots.SCALE_T.common.notify import send_notification
@@ -206,7 +208,11 @@ class DecisionMaker:
                 return False
 
             total_qty_to_buy = sum(float(row['target_shares']) - float(row['held_shares']) for row in rows_to_buy)
-            if total_qty_to_buy % 1 > 0:
+            # We need to place whole orders before fractional orders
+            # Check if order amount is greater than 1 + trim the decimals and place order
+            # Otherwise just place order(Covers everything less than one and whole shares off the bat)
+            if total_qty_to_buy > 1 and total_qty_to_buy % 1 > 0:
+                self.logger.debug(f"Wanted to buy {total_qty_to_buy} but trimming to {int(total_qty_to_buy)}")
                 total_qty_to_buy = int(total_qty_to_buy)
             # Find the row with the lowest buy_price (highest index)
             row_to_buy = rows_to_buy[-1]
@@ -240,10 +246,11 @@ class DecisionMaker:
         return False
     
     def _check_place_sell_order(self, current_price):
-        self.logger.debug(f"Checking to place sell order.{current_price}")
+        # self.logger.debug(f"Checking to place sell order.{current_price}")
         rows_to_sell = self.csv_service.get_rows_for_sell(current_price)
-        self.logger.debug(f"Rows to sell: {len(rows_to_sell)}")
         if rows_to_sell:
+            self.logger.info(f"Checked to place sell order at price {current_price}")
+            self.logger.debug(f"Rows to sell: {len(rows_to_sell)}")
             # If we have a pending buy order but want to sell, cancel the buy order first
             if self.pending_order and self.pending_order.side == 'buy':
                 self.logger.info(f"Cancelling pending buy order to place sell order. Order ID: {self.pending_order.id}")
@@ -257,9 +264,15 @@ class DecisionMaker:
                 # self._refresh_pending_order()
                 return True  # Return after cancellation to wait for order update
             elif self.pending_order and self.pending_order.side == 'sell':
+                self.logger.debug(f"Skipping sell order as there is already a pendingOrder of sell")
                 return False
+
             total_qty_to_sell = sum(float(row['held_shares']) for row in rows_to_sell)
-            if total_qty_to_sell % 1 > 0:
+            # We need to place whole orders before fractional orders
+            # Check if order amount is greater than 1 + trim the decimals and place order
+            # Otherwise just place order(Covers everything less than one and whole shares off the bat)
+            if total_qty_to_sell > 1 and total_qty_to_sell % 1 > 0:
+                self.logger.debug(f"Wanted to sell {total_qty_to_sell} but trimming to {int(total_qty_to_sell)}")
                 total_qty_to_sell = int(total_qty_to_sell)
             row_to_sell = rows_to_sell[0]
             sell_price = float(row_to_sell['sell_price'])
@@ -293,8 +306,9 @@ class DecisionMaker:
                 return False
         return False
 
-    def _filter_price_data(self, price):    
+    def _filter_price_data(self, price: float) -> float | None:    
         if price == self._prev_price:
+            self.logger.debug("Price is filtered")
             return None
         price = round(price, 2)
         self._prev_price = price
@@ -363,8 +377,8 @@ class DecisionMaker:
             feed = DataFeed.SIP
         )
 
-        async def price_handler(data):
-            self.logger.debug("Received price update")
+        async def price_handler(data: Trade | dict) -> None:
+            self.logger.debug(f"Received price update: {data.price}")
             message = {'type': 'price_update', 'data': data.price} # Modified line
             self.action_queue.put(message)
 

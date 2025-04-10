@@ -13,7 +13,11 @@ from main.bots.SCALE_T.trading.decision_maker import DecisionMaker
 from alpaca.trading.enums import OrderStatus, OrderSide
 from main.bots.SCALE_T.common.logging_config import get_logger
 
-
+"""
+    Testing: 
+        1. whole shares
+        2. 
+"""
 class TestScaleTIntegrationMocked(unittest.TestCase):
     """Integration tests for the SCALE_T bot with mocked components."""
 

@@ -109,15 +109,15 @@ class TestScaleTFractionalOrders(unittest.TestCase):
         args, kwargs = self.alpaca_interface.place_order.call_args
         self.assertEqual(args[0], OrderSide.BUY)
         self.assertEqual(args[1], 99.50)
-        self.assertEqual(args[2], 1.5)  # Fractional quantity
+        self.assertEqual(args[2], 1)  # Gotta do whole shares before fractional so 1 instead of 1.5
 
         # Update the mock order to be filled
         mock_placed_order.status = OrderStatus.FILLED
-        mock_placed_order.filled_qty = '1.5'  # Fractional fill
+        mock_placed_order.filled_qty = '1'  # Fractional fill
         mock_placed_order.filled_avg_price = '99.50'
 
         # Update mock share count to match the filled order
-        self.alpaca_interface.get_shares_count.return_value = 1.5  # Fractional shares
+        self.alpaca_interface.get_shares_count.return_value = 1  # Fractional shares
 
         # Mock the order update
         mock_order_update = Mock()
@@ -132,7 +132,7 @@ class TestScaleTFractionalOrders(unittest.TestCase):
 
         # Check that the CSV data was updated correctly
         row = self.csv_service.get_row_by_index(0)
-        self.assertEqual(float(row['held_shares']), 1.5)  # Should have 1.5 shares now
+        self.assertEqual(float(row['held_shares']), 1)  # Should have 1.5 shares now
         self.assertEqual(row['pending_order_id'], 'None')  # Order should be cleared
         
         # Verify there's no unrealized profit yet since price hasn't changed
@@ -173,11 +173,11 @@ class TestScaleTFractionalOrders(unittest.TestCase):
         args, kwargs = self.alpaca_interface.place_order.call_args
         self.assertEqual(args[0], OrderSide.SELL)
         self.assertEqual(args[1], 100.0)
-        self.assertEqual(args[2], 1.5)  # Fractional quantity
+        self.assertEqual(args[2], 1)  # Fractional quantity
 
         # Update the mock order to be filled
         mock_placed_order.status = OrderStatus.FILLED
-        mock_placed_order.filled_qty = '1.5'  # Fractional fill
+        mock_placed_order.filled_qty = '1'  # Fractional fill
         mock_placed_order.filled_avg_price = '100.0'
 
         # Update mock share count to match the filled order (should be 0 now)
@@ -200,7 +200,7 @@ class TestScaleTFractionalOrders(unittest.TestCase):
         self.assertEqual(row['pending_order_id'], 'None')  # Order should be cleared
         
         # Calculate expected profit: (sell_price - buy_price) * quantity
-        expected_profit = (100.0 - 99.5) * 1.5
+        expected_profit = (100.0 - 99.5) * 1
         self.assertEqual(float(row['profit']), expected_profit)
         
         self.logger.info("Fractional sell order test completed successfully")

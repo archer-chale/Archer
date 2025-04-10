@@ -212,7 +212,7 @@ class AlpacaInterface:
                                   (order_side == OrderSide.SELL and current_price > price)
               
               if not price_is_favorable:
-                  self.logger.warning(f"Current price ${current_price} is not favorable compared to limit price ${price}. Order not placed.")
+                  self.logger.warning(f"Current price ${current_price} is not favorable compared to expected order price ${price}. Order not placed.")
                   return None
                   
               # Create market order request for fractional shares
