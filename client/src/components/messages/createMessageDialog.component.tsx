@@ -10,17 +10,20 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  FormHelperText,
   Box,
   Typography,
   Chip,
-  Alert,
   CircularProgress,
-  Autocomplete
+  Stack,
+  Paper,
+  Card,
+  CardContent,
+  DialogContentText
 } from '@mui/material';
-import { IConfigMessage, IMessageTarget } from '../../types/pubsubmessage.type';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { IConfigMessage } from '../../types/pubsubmessage.type';
 import { useMessage } from '../../hooks/useMessage.hook';
-import { useServicesStore } from '../../store/services.store';
 
 /**
  * Props for the CreateMessageDialog component
@@ -41,32 +44,34 @@ const CreateMessageDialog: React.FC<CreateMessageDialogProps> = ({
   onMessageCreated
 }) => {
   const { saveMessage, loading, error } = useMessage();
-  const { services, loading: servicesLoading } = useServicesStore();
   
   // Form state
   const [description, setDescription] = useState('');
-  const [startCountAt, setStartCountAt] = useState<number>(0);
-  const [targetType, setTargetType] = useState<IMessageTarget['type']>('ALL');
-  const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
-  const [newTarget, setNewTarget] = useState('');
   
+  // Custom config state
+  const [customConfigs, setCustomConfigs] = useState<{[key: string]: string | number | boolean}>({});
+  const [configTypes, setConfigTypes] = useState<{[key: string]: 'string' | 'number' | 'boolean'}>({});
+  const [newConfigKey, setNewConfigKey] = useState('');
+  const [newConfigValue, setNewConfigValue] = useState('');
+  const [newConfigType, setNewConfigType] = useState<'string' | 'number' | 'boolean'>('string');
+
   // Validation errors
   const [descriptionError, setDescriptionError] = useState('');
-  const [startCountError, setStartCountError] = useState('');
-  const [targetError, setTargetError] = useState('');
+  
+  // Confirmation dialog state
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
   /**
    * Reset form state to default values
    */
   const resetForm = () => {
     setDescription('');
-    setStartCountAt(0);
-    setTargetType('ALL');
-    setSelectedTargets([]);
-    setNewTarget('');
+    setCustomConfigs({});
+    setConfigTypes({});
+    setNewConfigKey('');
+    setNewConfigValue('');
+    setNewConfigType('string');
     setDescriptionError('');
-    setStartCountError('');
-    setTargetError('');
   };
 
   /**
@@ -76,29 +81,63 @@ const CreateMessageDialog: React.FC<CreateMessageDialogProps> = ({
     resetForm();
     onClose();
   };
-
+  
   /**
-   * Add a new target to the selected targets list
+   * Handle the dialog close request with confirmation if needed
    */
-  const handleAddTarget = () => {
-    if (!newTarget) return;
+  const handleCloseRequest = () => {
+    // Check if there's any data to lose
+    const hasData = description.trim() !== '' || Object.keys(customConfigs).length > 0;
     
-    if (selectedTargets.includes(newTarget)) {
-      setTargetError('This target is already added');
-      return;
+    if (hasData) {
+      setConfirmDialogOpen(true);
+    } else {
+      handleClose();
     }
-    
-    setSelectedTargets([...selectedTargets, newTarget]);
-    setNewTarget('');
-    setTargetError('');
+  };
+  
+  /**
+   * Cancel the close request
+   */
+  const handleCancelClose = () => {
+    setConfirmDialogOpen(false);
   };
 
   /**
-   * Remove a target from the selected targets list
-   * @param targetToRemove - The target to remove
+   * Add a new custom configuration
    */
-  const handleRemoveTarget = (targetToRemove: string) => {
-    setSelectedTargets(selectedTargets.filter(target => target !== targetToRemove));
+  const handleAddConfig = () => {
+    if (!newConfigKey.trim()) return;
+    if (newConfigType !== 'boolean' && !newConfigValue.trim()) return;
+    
+    let typedValue: string | number | boolean = newConfigValue;
+    
+    // Convert value based on selected type
+    if (newConfigType === 'number') {
+      typedValue = Number(newConfigValue);
+      if (isNaN(typedValue)) typedValue = 0;
+    } else if (newConfigType === 'boolean') {
+      typedValue = newConfigValue === 'true';
+    }
+    
+    setCustomConfigs({ ...customConfigs, [newConfigKey]: typedValue });
+    setConfigTypes({ ...configTypes, [newConfigKey]: newConfigType });
+    setNewConfigKey('');
+    setNewConfigValue('');
+    setNewConfigType('string');
+  };
+
+  /**
+   * Remove a custom configuration
+   * @param configKeyToRemove - The key of the configuration to remove
+   */
+  const handleRemoveConfig = (configKeyToRemove: string) => {
+    const updatedConfigs = { ...customConfigs };
+    const updatedTypes = { ...configTypes };
+    delete updatedConfigs[configKeyToRemove];
+    delete updatedTypes[configKeyToRemove];
+    setCustomConfigs(updatedConfigs);
+    setConfigTypes(updatedTypes);
   };
 
   /**
@@ -116,22 +155,6 @@ const CreateMessageDialog: React.FC<CreateMessageDialogProps> = ({
       setDescriptionError('');
     }
     
-    // Validate starting count
-    if (startCountAt < 0) {
-      setStartCountError('Starting count must be a positive number');
-      isValid = false;
-    } else {
-      setStartCountError('');
-    }
-    
-    // Validate targets for SELECTED type
-    if (targetType === 'SELECTED' && selectedTargets.length === 0) {
-      setTargetError('At least one target must be selected');
-      isValid = false;
-    } else {
-      setTargetError('');
-    }
-    
     return isValid;
   };
 
@@ -144,204 +167,202 @@ const CreateMessageDialog: React.FC<CreateMessageDialogProps> = ({
     // Create message object
     const message: Omit<IConfigMessage, 'id' | 'acknowledgement' | 'acknowledgementCount'> = {
       description,
-      config: { startCountAt },
+      config: { ...customConfigs },
       target: {
-        type: targetType,
-        selected: targetType === 'ALL' ? [] : selectedTargets
+        type: 'ALL',
+        selected: []
       }
     };
+
+    console.log("message", message);
     
     // Save message
     const result = await saveMessage(message);
     
-    if (result && onMessageCreated) {
-      onMessageCreated(result);
-      handleClose();
+    if (result) {
+      resetForm();
+      onMessageCreated?.(result);
+      onClose();
     }
   };
 
-  /**
-   * Handle selecting a service from the dropdown
-   */
-  const handleServiceSelect = (value: string | null) => {
-    if (value && !selectedTargets.includes(value)) {
-      setSelectedTargets([...selectedTargets, value]);
-      setNewTarget('');
-    }
-  };
 
-  // Get available service IDs/tickers for selection
-  const availableServices = services
-    .filter(service => {
-      const serviceId = service.ticker;
-      return !selectedTargets.includes(serviceId);
-    })
-    .map(service => service.ticker);
 
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{ 
-        sx: { 
-          borderRadius: 2,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
-        } 
-      }}
-    >
+    <>
+      {/* Main Dialog */}
+      <Dialog 
+        open={open} 
+        onClose={handleCloseRequest} 
+        fullWidth 
+        maxWidth="md"
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            overflow: 'hidden'
+          }
+        }}
+      >
       <DialogTitle sx={{ 
-        borderBottom: '1px solid #eee',
-        fontSize: '1.5rem',
-        fontWeight: 'bold',
-        pb: 2
-      }}>
-        Create New Message
-      </DialogTitle>
-      
-      <DialogContent sx={{ pt: 3 }}>
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
-        
-        {/* Description field */}
-        <TextField
-          label="Description"
-          fullWidth
-          margin="normal"
-          variant="outlined"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          error={!!descriptionError}
-          helperText={descriptionError || 'Provide a description for this message'}
-          disabled={loading}
-        />
-        
-        {/* Configuration field */}
-        <Typography variant="subtitle1" sx={{ mt: 3, mb: 1 }}>
-          Counter Bot Configuration
-        </Typography>
-        
-        <TextField
-          label="Start Count At"
-          type="number"
-          fullWidth
-          margin="normal"
-          variant="outlined"
-          value={startCountAt}
-          onChange={(e) => setStartCountAt(Number(e.target.value))}
-          error={!!startCountError}
-          helperText={startCountError || 'The value to set the counter to'}
-          disabled={loading}
-          InputProps={{ inputProps: { min: 0 } }}
-        />
-        
-        {/* Target selection */}
-        <Typography variant="subtitle1" sx={{ mt: 3, mb: 1 }}>
-          Target Configuration
-        </Typography>
-        
-        <FormControl fullWidth error={!!targetError}>
-          <InputLabel>Target Type</InputLabel>
-          <Select
-            value={targetType}
-            label="Target Type"
-            onChange={(e) => setTargetType(e.target.value as IMessageTarget['type'])}
-            disabled={loading}
-          >
-            <MenuItem value="ALL">All Bots</MenuItem>
-            <MenuItem value="SELECTED">Selected Bots</MenuItem>
-          </Select>
-          {targetError && <FormHelperText>{targetError}</FormHelperText>}
-        </FormControl>
-        
-        {/* Target selection UI for SELECTED type */}
-        {targetType === 'SELECTED' && (
-          <Box sx={{ mt: 2 }}>
-            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-              <Autocomplete
-                options={availableServices}
-                value={null}
-                onChange={(_, value) => handleServiceSelect(value)}
-                renderInput={(params) => (
+        backgroundColor: 'primary.main', 
+        color: 'primary.contrastText',
+        py: 2.5
+      }}>Create New Message</DialogTitle>
+      <DialogContent sx={{ overflowY: 'auto' }}>
+        {/* Custom configurations */}
+        <Card variant="outlined" sx={{ mb: 3 }}>
+          <CardContent sx={{ p: 2 }}>
+            <Typography variant="h6" component="h3" sx={{ mb: 2, fontWeight: 500 }}>
+              Custom Configurations
+            </Typography>
+            
+            <Paper elevation={0} sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, mb: 3 }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
+                <TextField
+                  label="Key"
+                  placeholder="Enter key name"
+                  value={newConfigKey}
+                  onChange={(e) => setNewConfigKey(e.target.value.replace(/\s+/g, ''))}
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  InputProps={{
+                    sx: { borderRadius: 1.5 }
+                  }}
+                />
+                
+                {newConfigType !== 'boolean' ? (
                   <TextField
-                    {...params}
-                    label="Select Service"
+                    label="Value"
+                    placeholder={newConfigType === 'number' ? "Enter a number" : "Enter value"}
+                    value={newConfigValue}
+                    onChange={(e) => setNewConfigValue(e.target.value)}
                     variant="outlined"
+                    type={newConfigType === 'number' ? 'number' : 'text'}
                     size="small"
-                    sx={{ flexGrow: 1 }}
+                    fullWidth
+                    InputProps={{
+                      sx: { borderRadius: 1.5 }
+                    }}
                   />
+                ) : (
+                  <FormControl variant="outlined" size="small" fullWidth>
+                    <InputLabel>Value</InputLabel>
+                    <Select
+                      value={newConfigValue}
+                      onChange={(e) => setNewConfigValue(e.target.value)}
+                      label="Value"
+                      sx={{ borderRadius: 1.5 }}
+                    >
+                      <MenuItem value="true">True</MenuItem>
+                      <MenuItem value="false">False</MenuItem>
+                    </Select>
+                  </FormControl>
                 )}
-                disabled={loading || servicesLoading}
-                fullWidth
-              />
-              {servicesLoading && (
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <CircularProgress size={24} />
-                </Box>
-              )}
-            </Box>
+                
+                <FormControl variant="outlined" size="small" sx={{ minWidth: 140 }}>
+                  <InputLabel>Type</InputLabel>
+                  <Select
+                    value={newConfigType}
+                    onChange={(e) => setNewConfigType(e.target.value as 'string' | 'number' | 'boolean')}
+                    label="Type"
+                    sx={{ borderRadius: 1.5 }}
+                  >
+                    <MenuItem value="string">String</MenuItem>
+                    <MenuItem value="number">Number</MenuItem>
+                    <MenuItem value="boolean">Boolean</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                <Button 
+                  variant="contained" 
+                  onClick={() => handleAddConfig()} 
+                  disabled={!newConfigKey.trim() || (newConfigType !== 'boolean' && !newConfigValue.trim())}
+                  startIcon={<AddIcon />}
+                  sx={{ 
+                    borderRadius: 1.5,
+                    textTransform: 'none',
+                    px: 3,
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Add
+                </Button>
+              </Stack>
+            </Paper>
             
-            {/* Manual entry option */}
-            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-              <TextField
-                label="Add Custom Target"
-                value={newTarget}
-                onChange={(e) => setNewTarget(e.target.value)}
-                variant="outlined"
-                size="small"
-                disabled={loading}
-                sx={{ flexGrow: 1 }}
-              />
-              <Button 
-                variant="contained" 
-                onClick={handleAddTarget}
-                disabled={!newTarget.trim() || loading}
-              >
-                Add
-              </Button>
-            </Box>
-            
-            {/* Display selected targets */}
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {selectedTargets.length === 0 ? (
+            {/* Display custom configurations */}
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+              {Object.entries(customConfigs).length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
-                  No targets selected. Add at least one target.
+                  No custom configurations added.
                 </Typography>
               ) : (
-                selectedTargets.map((target) => (
-                  <Chip
-                    key={target}
-                    label={target}
-                    onDelete={() => handleRemoveTarget(target)}
-                    disabled={loading}
-                  />
-                ))
+                Object.entries(customConfigs).map(([key, value]) => {
+                  const valueType = configTypes[key] || 'string';
+                  let chipColor = 'default';
+                  if (valueType === 'number') chipColor = 'primary';
+                  if (valueType === 'boolean') chipColor = 'secondary';
+                  
+                  return (
+                    <Chip
+                      key={key}
+                      label={`${key}: ${value}`}
+                      onDelete={() => handleRemoveConfig(key)}
+                      disabled={loading}
+                      color={chipColor as any}
+                      sx={{ 
+                        maxWidth: '100%', 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis',
+                        borderRadius: 1.5,
+                        '& .MuiChip-deleteIcon': {
+                          color: 'inherit',
+                          opacity: 0.7,
+                          '&:hover': { opacity: 1 }
+                        }
+                      }}
+                      deleteIcon={<DeleteIcon />}
+                    />
+                  );
+                })
               )}
             </Box>
+          </CardContent>
+        </Card>
 
-            {/* Show service information */}
-            {services.length > 0 && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Available Services: {services.length}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {services.map(s => s.ticker).join(', ')}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-        )}
+        <Card variant="outlined" sx={{ mb: 3 }}>
+          <CardContent sx={{ p: 2 }}>
+            <Typography variant="h6" component="h3" sx={{ mb: 2, fontWeight: 500 }}>
+              Message Details
+            </Typography>
+            <TextField
+              label="Description"
+              placeholder="Enter message description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              fullWidth
+              error={!!descriptionError}
+              helperText={descriptionError}
+              disabled={loading}
+              InputProps={{
+                sx: { borderRadius: 1.5 }
+              }}
+            />
+          </CardContent>
+        </Card>
       </DialogContent>
       
-      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #eee' }}>
+      <DialogActions sx={{ px: 3, py: 2.5, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
         <Button 
           onClick={handleClose}
           disabled={loading}
+          variant="outlined"
+          sx={{ 
+            borderRadius: 1.5,
+            textTransform: 'none',
+            px: 3
+          }}
         >
           Cancel
         </Button>
@@ -350,11 +371,35 @@ const CreateMessageDialog: React.FC<CreateMessageDialogProps> = ({
           onClick={handleSubmit}
           disabled={loading}
           startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+          sx={{ 
+            borderRadius: 1.5,
+            textTransform: 'none',
+            px: 3
+          }}
         >
           {loading ? 'Creating...' : 'Create Message'}
         </Button>
       </DialogActions>
     </Dialog>
+    
+    {/* Confirmation Dialog */}
+    <Dialog open={confirmDialogOpen} onClose={handleCancelClose}>
+      <DialogTitle>Discard changes?</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          You have unsaved changes. Are you sure you want to close this dialog and discard your changes?
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleCancelClose} color="primary" variant="outlined" sx={{ borderRadius: 1.5 }}>
+          Cancel
+        </Button>
+        <Button onClick={handleClose} color="error" variant="contained" sx={{ borderRadius: 1.5 }}>
+          Discard
+        </Button>
+      </DialogActions>
+    </Dialog>
+    </>
   );
 };
 

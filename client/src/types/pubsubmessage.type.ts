@@ -23,11 +23,7 @@ export interface IMessageTarget {
  * Contains settings that will be applied to the counter bot
  */
 export interface IMessageConfig {
-  /**
-   * The value at which the counter bot should start counting
-   * For example, if startCountAt is 3, the bot will reset its count to 3
-   */
-  startCountAt: number;
+  [key: string]: string | number | boolean;
 }
 
 /**
