@@ -18,10 +18,16 @@ import {
   Paper,
   Card,
   CardContent,
-  DialogContentText
+  DialogContentText,
+  Divider,
+  Grid,
+  Tooltip,
+  alpha
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CodeIcon from '@mui/icons-material/Code';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { IConfigMessage } from '../../types/pubsubmessage.type';
 import { useMessage } from '../../hooks/useMessage.hook';
 
@@ -292,42 +298,155 @@ const CreateMessageDialog: React.FC<CreateMessageDialogProps> = ({
             </Paper>
             
             {/* Display custom configurations */}
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-              {Object.entries(customConfigs).length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  No custom configurations added.
-                </Typography>
-              ) : (
-                Object.entries(customConfigs).map(([key, value]) => {
-                  const valueType = configTypes[key] || 'string';
-                  let chipColor = 'default';
-                  if (valueType === 'number') chipColor = 'primary';
-                  if (valueType === 'boolean') chipColor = 'secondary';
-                  
-                  return (
-                    <Chip
-                      key={key}
-                      label={`${key}: ${value}`}
-                      onDelete={() => handleRemoveConfig(key)}
-                      disabled={loading}
-                      color={chipColor as any}
-                      sx={{ 
-                        maxWidth: '100%', 
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis',
-                        borderRadius: 1.5,
-                        '& .MuiChip-deleteIcon': {
-                          color: 'inherit',
-                          opacity: 0.7,
-                          '&:hover': { opacity: 1 }
-                        }
-                      }}
-                      deleteIcon={<DeleteIcon />}
-                    />
-                  );
-                })
-              )}
+            <Box sx={{ mb: Object.entries(customConfigs).length > 0 ? 3 : 0 }}>
+              <Grid container spacing={2}>
+                {Object.entries(customConfigs).length === 0 ? (
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary" sx={{ pl: 1 }}>
+                      No custom configurations added.
+                    </Typography>
+                  </Grid>
+                ) : (
+                  Object.entries(customConfigs).map(([key, value]) => {
+                    const valueType = configTypes[key] || 'string';
+                    let chipColor = 'default';
+                    let bgColor = 'rgba(0,0,0,0.04)';
+                    let valueDisplay = String(value);
+                    
+                    if (valueType === 'number') {
+                      chipColor = 'primary';
+                      bgColor = alpha('#1976d2', 0.08);
+                      valueDisplay = Number(value).toString();
+                    } else if (valueType === 'boolean') {
+                      chipColor = 'secondary';
+                      bgColor = alpha('#9c27b0', 0.08);
+                      valueDisplay = Boolean(value).toString();
+                    } else if (valueType === 'string') {
+                      valueDisplay = `"${value}"`;
+                    }
+                    
+                    return (
+                      <Grid item xs={12} sm={6} md={4} key={key}>
+                        <Paper 
+                          elevation={0} 
+                          sx={{ 
+                            p: 1.5, 
+                            bgcolor: bgColor,
+                            borderRadius: 2,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            height: '100%'
+                          }}
+                        >
+                          <Box sx={{ overflow: 'hidden', flexGrow: 1 }}>
+                            <Typography 
+                              variant="subtitle2" 
+                              sx={{ 
+                                fontWeight: 600, 
+                                mb: 0.5,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5 
+                              }}
+                            >
+                              {key}
+                              <Chip 
+                                label={valueType} 
+                                size="small" 
+                                color={chipColor as any}
+                                sx={{ 
+                                  height: 20, 
+                                  '& .MuiChip-label': { 
+                                    px: 1,
+                                    fontSize: '0.65rem',
+                                    fontWeight: 500 
+                                  } 
+                                }}
+                              />
+                            </Typography>
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                overflow: 'hidden', 
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                fontFamily: 'monospace',
+                                fontSize: '0.85rem' 
+                              }}
+                            >
+                              {valueDisplay}
+                            </Typography>
+                          </Box>
+                          <Button
+                            size="small"
+                            variant="text"
+                            color="inherit"
+                            onClick={() => handleRemoveConfig(key)}
+                            sx={{ 
+                              minWidth: 32, 
+                              width: 32, 
+                              height: 32,
+                              p: 0,
+                              ml: 1,
+                              opacity: 0.6,
+                              '&:hover': { opacity: 1 } 
+                            }}
+                            disabled={loading}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </Button>
+                        </Paper>
+                      </Grid>
+                    );
+                  })
+                )}
+              </Grid>
             </Box>
+            
+            {/* Config Preview */}
+            {Object.entries(customConfigs).length > 0 && (
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: 2, 
+                  bgcolor: 'background.default', 
+                  borderRadius: 2,
+                  position: 'relative'
+                }}
+              >
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  mb: 1.5 
+                }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <CodeIcon fontSize="small" color="primary" />
+                    <Typography variant="subtitle2">
+                      Config Preview
+                    </Typography>
+                  </Stack>
+                  <Tooltip title="This is how your configuration will appear in the message">
+                    <InfoOutlinedIcon fontSize="small" sx={{ opacity: 0.6 }} />
+                  </Tooltip>
+                </Box>
+                <Box 
+                  sx={{ 
+                    p: 1.5, 
+                    bgcolor: alpha('#000', 0.03),
+                    borderRadius: 1.5,
+                    fontFamily: 'monospace',
+                    fontSize: '0.85rem',
+                    overflowX: 'auto'
+                  }}
+                >
+                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {JSON.stringify(customConfigs, null, 2)}
+                  </pre>
+                </Box>
+              </Paper>
+            )}
           </CardContent>
         </Card>
 
