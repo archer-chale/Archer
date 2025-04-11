@@ -1,23 +1,13 @@
 /**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
+ * Main Firebase Functions entry point
+ * This file initializes the Firebase Admin SDK and exports all functions from service modules
  */
 
-import {onRequest} from "firebase-functions/v2/https";
-import * as logger from "firebase-functions/logger";
-import { messageCreatedHandler, onMessageAcknowledged } from "./message/message.listener";
+import * as admin from 'firebase-admin';
 
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
+// Initialize Firebase Admin SDK
+admin.initializeApp();
 
-export const helloWorld = onRequest((request, response) => {
-  logger.info("Hello logs!", {structuredData: true});
-  response.send("Hello from Firebase!");
-});
+// Export all service functions
+export { createNewMessage } from "./service/message.service";
 
-// Export message related functions
-export { messageCreatedHandler, onMessageAcknowledged };

@@ -19,12 +19,6 @@ class MessageServiceController {
   ): Promise<IConfigMessage | null> {
     // Validate the message
     console.log('Saving message controller:', message);
-    const validationError = this.validateMessage(message);
-    if (validationError) {
-      console.error('Message validation error:', validationError);
-      throw new Error(validationError);
-    }
-
     try {
       // Save message via Firebase service
       const savedMessage = await messageServiceFirebase.saveMessage(message);
@@ -38,6 +32,8 @@ class MessageServiceController {
       console.error('Error in saveMessage controller:', error);
       throw error;
     }
+
+    return null;
   }
 
   /**

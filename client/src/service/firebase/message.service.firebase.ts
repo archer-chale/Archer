@@ -1,18 +1,15 @@
 import { ref, onValue } from 'firebase/database';
 import { 
   collection, 
-  addDoc, 
-  deleteDoc, 
   doc, 
-  onSnapshot, 
   query, 
   orderBy,
-  serverTimestamp,
-  getFirestore
+  deleteDoc,
+  onSnapshot
 } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { firestore } from '../../firebaseConfig';
-import { v4 as uuidv4 } from 'uuid';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { IConfigMessage } from '../../types/pubsubmessage.type';
 
 /**
@@ -23,43 +20,26 @@ class MessageServiceFirebase {
   private readonly MESSAGES_REF = 'messages';
 
   /**
-   * Save a new message to Firestore
+   * Save a new message by calling the createNewMessage Firebase function
    * @param message - The message to save
-   * @returns The saved message with generated id and timestamps
+   * @returns The saved message with generated id and acknowledgement details
    */
   async saveMessage(message: Omit<IConfigMessage, 'id' | 'acknowledgement' | 'acknowledgementCount'>): Promise<IConfigMessage | null> {
-    try {
-      console.log('Saving message firebase:', message);
-
-      // Create a reference to the messages collection
-      const messagesCollection = collection(firestore, this.MESSAGES_COLLECTION);
+    try {      
+      // Get Firebase Functions instance
+      const functions = getFunctions();
       
-      // Generate a unique ID for the message
-      const messageId = uuidv4();
+      // Create reference to the createNewMessage function
+      const createMessageFunction = httpsCallable(functions, 'createNewMessage');
       
-      // Create the complete message with acknowledgement info
-      const completeMessage: IConfigMessage = {
-        id: messageId,
-        description: message.description,
-        config: message.config,
-        target: message.target,
-        acknowledgement: [],
-        acknowledgementCount: 0
-      };
+      // Call the function with the message data
+      const result = await createMessageFunction(message);
       
-      // Save message to Firestore
-      console.log('Saving message to Firestore:', completeMessage);
-      await addDoc(messagesCollection, {
-        ...completeMessage,
-        // Add Firestore timestamps
-        firestoreCreatedAt: serverTimestamp(),
-        firestoreUpdatedAt: serverTimestamp()
-      });
-      
-      return completeMessage;
-    } catch (error) {
-      console.error('Error saving message:', error);
-      return null;
+      // Return the created message
+      return result.data as IConfigMessage;
+    } catch (error: any) {
+      console.error('Error saving message:', error.code, error.message, error.details);
+      throw error;
     }
   }
 
@@ -77,10 +57,10 @@ class MessageServiceFirebase {
       );
       
       // Subscribe to real-time updates
-      const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+      const unsubscribe = onSnapshot(messagesQuery, (snapshot: any) => {
         const messagesList: IConfigMessage[] = [];
         
-        snapshot.forEach((doc) => {
+        snapshot.forEach((doc: any) => {
           const data = doc.data();
           // Format the data for the IConfigMessage type
           messagesList.push({

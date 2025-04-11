@@ -19,17 +19,13 @@ export interface IMessageTarget {
   }
   
   /**
-   * Interface for counter bot configuration
-   * Contains settings that will be applied to the counter bot
-   */
-  export interface IMessageConfig {
-    /**
-     * The value at which the counter bot should start counting
-     * For example, if startCountAt is 3, the bot will reset its count to 3
-     */
-    startCountAt: number;
-  }
-  
+ * Interface for counter bot configuration
+ * Contains settings that will be applied to the counter bot
+ */
+export interface IMessageConfig {
+  [key: string]: string | number | boolean;
+}
+
   /**
    * Main interface for configuration messages
    * Contains all details about a message including targets, config and acknowledgements
