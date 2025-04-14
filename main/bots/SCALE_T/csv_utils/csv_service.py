@@ -10,6 +10,7 @@ from .csv_core import CSVCore
 
 
 from main.bots.SCALE_T.common.logging_config import get_logger
+from main.bots.SCALE_T.common.constants import TradingType
 
 class CSVService(CSVCore):
     """
@@ -18,7 +19,7 @@ class CSVService(CSVCore):
     Uses dictionary-based operations for data manipulation.
     """
 
-    def __init__(self, ticker: str, trading_type: str, custom_id: Optional[str] = None):
+    def __init__(self, ticker: str, trading_type: TradingType, custom_id: Optional[str] = None):
         """
         Initialize CSVService with ticker and trading type.
 

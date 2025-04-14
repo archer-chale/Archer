@@ -31,7 +31,8 @@ class TestEngine(unittest.TestCase):
         mock_decision_maker_instance.consume_actions.side_effect = side_effect
         
         # Call the run_engine function with test parameters
-        with self.assertRaises(Exception) as context:
+        # with self.assertRaises(Exception) as context:
+        with self.assertRaises(RuntimeError) as context:
             run_engine(ticker="AAPL", trading_type="paper")
             
         self.assertIn("Test completed", str(context.exception))

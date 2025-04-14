@@ -10,6 +10,9 @@ import pytest
 from main.bots.SCALE_T.csv_utils.csv_service import CSVService
 from main.bots.SCALE_T.brokerages.alpaca_interface import AlpacaInterface
 from main.bots.SCALE_T.trading.decision_maker import DecisionMaker
+from main.bots.SCALE_T.common.constants import TradingType
+
+
 from alpaca.trading.enums import OrderStatus, OrderSide
 
 
@@ -20,7 +23,7 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
     def setUpClass(cls):
         """Set up test fixtures for each test."""
         # Create a temporary directory
-        cls.csv_file_path = os.path.join("data", "SCALE_T", "ticker_data", "paper", "TEST.csv")
+        cls.csv_file_path = os.path.join("data", "SCALE_T", "ticker_data", TradingType.PAPER.value, "TEST.csv")
         os.makedirs(os.path.dirname(cls.csv_file_path), exist_ok=True)
 
         # Generate CSV data
@@ -52,7 +55,7 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         # Mock AlpacaInterface
         cls.alpaca_interface = Mock(spec=AlpacaInterface)
         cls.alpaca_interface.ticker = "TEST"
-        cls.alpaca_interface.trading_type = "paper"
+        cls.alpaca_interface.trading_type = TradingType.PAPER
 
         # Mock AlpacaInterface initialization methods
         cls.mock_initial_price = 101.0
@@ -61,7 +64,7 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         cls.alpaca_interface.get_shares_count.return_value = cls.mock_shares_count
 
         # Instantiate CSVService and DecisionMaker
-        cls.csv_service = CSVService("TEST", "paper")
+        cls.csv_service = CSVService("TEST", TradingType.PAPER)
         cls.decision_maker = DecisionMaker(
             csv_service=cls.csv_service, alpaca_interface=cls.alpaca_interface
         )
@@ -203,6 +206,7 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         self.alpaca_interface.get_shares_count.return_value = 3
         # Simulate order update coming on queue
         mock_placed_order = Mock()
+        mock_placed_order.id = "test_order_id_1"
         mock_placed_order.status = OrderStatus.CANCELED
         mock_placed_order.filled_qty = 3
         mock_placed_order.filled_avg_price = 97.03

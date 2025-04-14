@@ -4,7 +4,8 @@ from typing import List, Dict, Union
 import csv, os, json, time
 
 from main.bots.SCALE_T.common.constants import (
-    METADATA_FILE
+    METADATA_FILE,
+    TradingType
 )
 
 class CSVCore:
@@ -13,7 +14,7 @@ class CSVCore:
     This class provides core functionality that can be extended by specific CSV handlers.
     """
     
-    def __init__(self, ticker: str, trading_type: str, custom_id: Optional[str] = None):
+    def __init__(self, ticker: str, trading_type: TradingType, custom_id: Optional[str] = None):
         self.ticker = ticker.upper()
         self.trading_type = trading_type
         self.custom_id = custom_id
@@ -36,10 +37,8 @@ class CSVCore:
             with open(self.csv_filepath, 'r') as f:
                 reader = csv.DictReader(f)
                 data = list(reader)
-            self.csv_data = data
-            if not self.validate_csv_data():
-                raise ValueError("CSV data validation failed.")
-            return data
+                self.csv_data = data
+            self.validate_csv_data()
         except FileNotFoundError:
             print(f"File not found: {self.csv_filepath}")
             raise FileNotFoundError(f"File not found: {self.csv_filepath}")
@@ -56,6 +55,9 @@ class CSVCore:
         except FileNotFoundError:
             print(f"Metadata file not found: {metadata_path}")
             return {}  # Return an empty dictionary if file not found
+        except Exception as e:
+            print(f"Unknown exception, something might be wrong with metadata: {e}")
+            return {}
         
     def _get_required_columns(self):
         """Extracts and returns a list of required column names from the metadata.
@@ -83,30 +85,23 @@ class CSVCore:
         Validate the CSV data to ensure it has the correct structure. (Public method)
 
         Returns:
-            bool: True if the data is valid, False otherwise.
+            throw Exception on validation failure
         """
         column_names = self._get_column_names()
         if not column_names:
-            return True  # Consider empty data as valid
+            return # Consider empty data as valid
 
         # 1. Check for required columns
         for required_col in self.required_columns: # Use self.required_columns
             if required_col not in column_names:
-                print(f"Validation failed: Missing required column: {required_col}") # Debugging
-                return False
+                raise ValueError(f"Validation failed: Missing required column: {required_col}") # Debugging
 
         # 2. Basic data type checks
         for row in self.csv_data:
-            try:
-                int(row.get('index', 0))  # Check if index is integer-like
-                float(row.get('target_shares', 0)) # Check if target_shares is numeric
-                float(row.get('buy_price', 0)) # Check if buy_price is float-like
-                float(row.get('sell_price', 0)) # Check if sell_price is float-like
-            except ValueError:
-                print("Validation failed: Invalid data type in row.")  # Debugging
-                return False
-
-        return True
+            int(row.get('index', 0))  # Check if index is integer-like
+            float(row.get('target_shares', 0)) # Check if target_shares is numeric
+            float(row.get('buy_price', 0)) # Check if buy_price is float-like
+            float(row.get('sell_price', 0)) # Check if sell_price is float-like
 
     def _get_column_names(self) -> List[str]:
         """
