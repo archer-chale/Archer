@@ -8,6 +8,7 @@ import { messageServiceController } from '../service/controllers/message.service
  */
 export const useMessage = () => {
   const [messages, setMessages] = useState<IConfigMessageSimple[]>([]);
+  const [messagesV2, setMessagesV2] = useState<IConfigMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,6 +97,10 @@ export const useMessage = () => {
     try {
       console.log('Saving message hook:', message);
       const savedMessage = await messageServiceController.saveMessage(message);
+      if (!savedMessage) {
+        throw new Error('Failed to save message');
+      }
+      setMessagesV2((prevMessages) => [...prevMessages, savedMessage]);
       setLoading(false);
       return savedMessage;
     } catch (err) {
@@ -138,6 +143,7 @@ export const useMessage = () => {
 
   return {
     messages,
+    messagesV2,
     loading,
     error,
     getAllMessages,

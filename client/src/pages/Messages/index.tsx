@@ -6,24 +6,69 @@ import {
   CircularProgress,
   Alert,
   Button,
-  Fab
+  Fab,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { useMessage } from '../../hooks/useMessage.hook';
 import ViewAllMessages from '../../components/messages/viewAllMessages.component';
 import CreateMessageDialog from '../../components/messages/createMessageDialog.component';
+import { IConfigMessage } from '../../types/pubsubmessage.type';
 
 /**
  * Messages page component
  * Displays messages and provides interface for creating new messages
  */
+// Mock data for IConfigMessage objects
+const mockMessages: IConfigMessage[] = [
+  {
+    id: 'msg-001',
+    description: 'Start counter at 10',
+    acknowledgement: ['bot-1', 'bot-3'],
+    acknowledgementCount: 2,
+    config: { startCountAt: 10 },
+    target: { type: 'ALL', selected: [] }
+  },
+  {
+    id: 'msg-002',
+    description: 'Reset selected counters',
+    acknowledgement: ['bot-2'],
+    acknowledgementCount: 1,
+    config: { startCountAt: 0 },
+    target: { 
+      type: 'SELECTED', 
+      selected: ['bot-2', 'bot-4'] 
+    }
+  },
+  {
+    id: 'msg-003',
+    description: 'Configure all bots with advanced settings',
+    acknowledgement: [],
+    acknowledgementCount: 0,
+    config: { 
+      startCountAt: 5,
+      interval: 2000,
+      enableLogging: true,
+      maxCount: 100
+    },
+    target: { type: 'ALL', selected: [] }
+  }
+];
+
 const Messages = () => {
-  const { messages, loading, error, getAllMessages, deleteMessageById } = useMessage();
+  const { messagesV2, loading, error, getAllMessages, deleteMessageById } = useMessage();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [useMockData, setUseMockData] = useState(true);
+  
+  // Use mock data or real data based on the toggle
+  const displayMessages = useMockData || messagesV2.length === 0 ? mockMessages : messagesV2;
 
   // Load messages when component mounts
   useEffect(() => {
     getAllMessages();
+    // Note: messagesV2 is populated by the useMessage hook via the saveMessage function
+    // and the Firebase real-time subscription
   }, [getAllMessages]);
 
   /**
@@ -68,6 +113,14 @@ const Messages = () => {
         margin: '0 auto',
         justifyContent: 'center'
       }}>
+        {/* Mock data toggle - only for development */}
+        <Grid item xs={12} sx={{ mb: 2 }}>
+          <FormControlLabel
+            control={<Switch checked={useMockData} onChange={(e) => setUseMockData(e.target.checked)} />}
+            label="Use mock data"
+          />
+        </Grid>
+        
         {/* Page Title and Actions */}
         <Grid item xs={12} sx={{ 
           display: 'flex', 
@@ -114,7 +167,7 @@ const Messages = () => {
         {!loading && !error && (
           <Grid item xs={12}>
             <ViewAllMessages 
-              messages={messages}
+              messages={displayMessages}
               onDeleteMessage={handleDeleteMessage}
               loading={loading}
             />

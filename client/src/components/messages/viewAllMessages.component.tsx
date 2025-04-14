@@ -14,14 +14,13 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { IConfigMessage, IConfigMessageSimple } from '../../types/pubsubmessage.type';
-import { useMessage } from '../../hooks/useMessage.hook';
+import { IConfigMessage } from '../../types/pubsubmessage.type';
 
 /**
  * Props for the ViewAllMessages component
  */
 interface ViewAllMessagesProps {
-  messages: IConfigMessageSimple[];
+  messages: IConfigMessage[];
   onDeleteMessage?: (messageId: string) => void;
   loading?: boolean;
 }
@@ -35,28 +34,24 @@ const ViewAllMessages: React.FC<ViewAllMessagesProps> = ({
   onDeleteMessage,
   loading = false
 }) => {
-  const { getMessageDetailsById } = useMessage();
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [expandedMessage, setExpandedMessage] = useState<IConfigMessage | null>(null);
 
   /**
    * Toggles expansion of a card
    * @param messageId - ID of the message to expand/collapse
    */
-  const handleExpandClick = async (messageId: string) => {
+  const handleExpandClick = (messageId: string) => {
     if (expandedId === messageId) {
       // If already expanded, collapse it
       setExpandedId(null);
-      setExpandedMessage(null);
     } else {
-      // If not expanded, fetch details and expand it
+      // If not expanded, expand it
       setExpandedId(messageId);
-      const messageDetails = await getMessageDetailsById(messageId);
-      if (messageDetails) {
-        setExpandedMessage(messageDetails);
-      }
     }
   };
+
+  console.log("messages", messages)
+  console.log("expandedId", expandedId)
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -91,7 +86,7 @@ const ViewAllMessages: React.FC<ViewAllMessagesProps> = ({
             >
               <CardHeader
                 title={message.description}
-                subheader={`Acknowledgements: ${message.acknowledgementCount}`}
+                subheader={`Acknowledgements: ${message.acknowledgement?.length || 0}`}
                 action={
                   <IconButton
                     onClick={() => handleExpandClick(message.id)}
@@ -108,7 +103,7 @@ const ViewAllMessages: React.FC<ViewAllMessagesProps> = ({
               />
               
               <Collapse in={expandedId === message.id} timeout="auto" unmountOnExit>
-                {expandedMessage && expandedMessage.id === message.id && (
+                {expandedId === message.id && (
                   <CardContent>
                     <Divider sx={{ mb: 2 }} />
                     
@@ -121,11 +116,52 @@ const ViewAllMessages: React.FC<ViewAllMessagesProps> = ({
                         p: 2, 
                         borderRadius: 1, 
                         backgroundColor: '#f5f5f5',
-                        fontSize: '0.9rem'
+                        fontSize: '0.9rem',
+                        fontFamily: 'monospace'
                       }}>
-                        <Typography>
-                          <strong>Start Count At:</strong> {expandedMessage.config.startCountAt}
-                        </Typography>
+                        {!message.config || Object.keys(message.config).length === 0 ? (
+                          <Typography color="text.secondary">No configuration values.</Typography>
+                        ) : (
+                          <Grid container spacing={1}>
+                            {Object.entries(message.config).map(([key, value]) => {
+                              // Determine the type of value for styling
+                              const valueType = typeof value;
+                              let chipColor = 'default';
+                              let valueDisplay = String(value);
+                              
+                              if (valueType === 'number') {
+                                chipColor = 'primary';
+                              } else if (valueType === 'boolean') {
+                                chipColor = 'secondary';
+                              } else if (valueType === 'string') {
+                                valueDisplay = `"${value}"`;
+                              }
+                              
+                              return (
+                                <Grid item xs={12} key={key}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                    <Typography sx={{ fontWeight: 'bold', mr: 1 }}>{key}:</Typography>
+                                    <Chip 
+                                      size="small" 
+                                      label={valueType}
+                                      color={chipColor as any}
+                                      sx={{ 
+                                        height: 20, 
+                                        mr: 1,
+                                        '& .MuiChip-label': { 
+                                          px: 1,
+                                          fontSize: '0.65rem',
+                                          fontWeight: 500 
+                                        } 
+                                      }}
+                                    />
+                                    <Typography>{valueDisplay}</Typography>
+                                  </Box>
+                                </Grid>
+                              );
+                            })}
+                          </Grid>
+                        )}
                       </Box>
                     </Box>
                     
@@ -136,15 +172,15 @@ const ViewAllMessages: React.FC<ViewAllMessagesProps> = ({
                       </Typography>
                       <Box sx={{ mb: 1 }}>
                         <Chip 
-                          label={expandedMessage.target.type === 'ALL' ? 'All Bots' : 'Selected Bots'} 
-                          color={expandedMessage.target.type === 'ALL' ? 'primary' : 'secondary'}
+                          label={message.target.type === 'ALL' ? 'All Bots' : 'Selected Bots'} 
+                          color={message.target.type === 'ALL' ? 'primary' : 'secondary'}
                           size="small"
                         />
                       </Box>
                       
-                      {expandedMessage.target.type === 'SELECTED' && expandedMessage.target.selected.length > 0 && (
+                      {message.target.type === 'SELECTED' && message.target.selected.length > 0 && (
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                          {expandedMessage.target.selected.map((target) => (
+                          {message.target.selected.map((target) => (
                             <Chip key={target} label={target} size="small" />
                           ))}
                         </Box>
@@ -154,16 +190,16 @@ const ViewAllMessages: React.FC<ViewAllMessagesProps> = ({
                     {/* Acknowledgements */}
                     <Box>
                       <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        Acknowledgements ({expandedMessage.acknowledgementCount})
+                        Acknowledgements ({message.acknowledgement?.length || 0})
                       </Typography>
                       
-                      {expandedMessage?.acknowledgement?.length === 0 ? (
+                      {message.acknowledgement?.length === 0 ? (
                         <Typography variant="body2" color="text.secondary">
                           No acknowledgements yet.
                         </Typography>
                       ) : (
                         <Grid container spacing={1}>
-                          {expandedMessage?.acknowledgement?.map((botId) => (
+                          {message.acknowledgement?.map((botId) => (
                             <Grid item key={botId}>
                               <Chip label={botId} size="small" />
                             </Grid>

@@ -62,13 +62,29 @@ class MessageServiceFirebase {
         
         snapshot.forEach((doc: any) => {
           const data = doc.data();
-          // Format the data for the IConfigMessage type
-          messagesList.push({
-            ...data,
-            id: doc.id, // Use the Firestore document ID
-            acknowledgement: data.acknowledgement || [],
-            acknowledgementCount: data.acknowledgementCount || 0
-          } as IConfigMessage);
+          console.log("Message data from Firestore:", data);
+          
+          // Normalize the data to handle both old and new message formats
+          const normalizedMessage: IConfigMessage = {
+            // Use document ID or existing ID
+            id: doc.id || data.id,
+            
+            // Ensure we have the description
+            description: data.description || '',
+            
+            // Handle different acknowledgement structures
+            acknowledgement: data.acknowledgement || data.acknowledgements || [],
+            acknowledgementCount: data.acknowledgementCount || (data.acknowledgement?.length || 0),
+            
+            // Ensure we have the config and target
+            config: data.config || {},
+            target: data.target || { type: 'ALL', selected: [] },
+            
+            // Include all other properties for reference
+            ...data
+          };
+          
+          messagesList.push(normalizedMessage);
         });
         
         callback(messagesList);
