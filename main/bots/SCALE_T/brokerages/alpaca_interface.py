@@ -19,11 +19,13 @@ from alpaca.data.models import Trade, Quote, Bar
 from alpaca.common.exceptions import APIError
 
 from ..common.constants import (
-    PAPER_ALPACA_KEY_ID,
-    PAPER_ALPACA_SECRET_KEY,
-    LIVE_ALPACA_KEY_ID,
-    LIVE_ALPACA_SECRET_KEY,
+    # PAPER_ALPACA_KEY_ID,
+    # PAPER_ALPACA_SECRET_KEY,
+    # LIVE_ALPACA_KEY_ID,
+    # LIVE_ALPACA_SECRET_KEY,
     ENV_FILE,
+    TradingType,
+    TRADING_TYPE_TO_KEY_NAME
 )
 from ..common.logging_config import get_logger
 
@@ -40,7 +42,7 @@ class AlpacaInterface:
     """
 
     def __init__(self, trading_type: str = "paper", ticker: str = None):
-        self.logger = get_logger(__name__)
+        self.logger = get_logger(self.__class__.__name__)
         self.trading_type = trading_type
         self.ticker = ticker
         self.api_key = None
@@ -61,17 +63,13 @@ class AlpacaInterface:
         """
         Sets the Alpaca Trading client and api/secret keys.
         """
-        if self.trading_type == "paper":
-            self.api_key = os.environ.get(PAPER_ALPACA_KEY_ID)
-            self.secret_key = os.environ.get(PAPER_ALPACA_SECRET_KEY)
-            self.trading_client = TradingClient(self.api_key, self.secret_key, paper=True)
-            self.data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
-        else:  # live
-            self.api_key = os.environ.get(LIVE_ALPACA_KEY_ID)
-            self.secret_key = os.environ.get(LIVE_ALPACA_SECRET_KEY)
-            self.trading_client = TradingClient(self.api_key, self.secret_key, paper=False)
-            self.data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
 
+        KEY_ID_NAME = TRADING_TYPE_TO_KEY_NAME[self.trading_type]["KEY_ID_NAME"]
+        SECRET_KEY_NAME = TRADING_TYPE_TO_KEY_NAME[self.trading_type]["SECRET_KEY_NAME"]
+        self.api_key = os.environ.get(KEY_ID_NAME)
+        self.secret_key = os.environ.get(SECRET_KEY_NAME)
+        self.trading_client = TradingClient(self.api_key, self.secret_key, paper=(self.trading_type == TradingType.PAPER))
+        self.data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
 
     def validate_alpaca_keys(self) -> Tuple[bool, List[str]]:
         """
@@ -79,25 +77,6 @@ class AlpacaInterface:
         """
         errors = []
         self.logger.info("Validating Alpaca keys...")
-
-        if self.trading_type == "paper":
-            key_id_name = PAPER_ALPACA_KEY_ID
-            secret_name = PAPER_ALPACA_SECRET_KEY
-        else:
-            key_id_name = LIVE_ALPACA_KEY_ID
-            secret_name = LIVE_ALPACA_SECRET_KEY
-
-        # Check if API keys exist in environment variables
-        api_key = os.environ.get(key_id_name)
-        api_secret = os.environ.get(secret_name)
-
-        if not api_key:
-            self.logger.error(f"{key_id_name} environment variable not found")
-            errors.append(f"{key_id_name} environment variable not found")
-
-        if not api_secret:
-            self.logger.error(f"{secret_name} environment variable not found")
-            errors.append(f"{secret_name} environment variable not found")
 
         # If keys don't exist, return early
         if errors:
@@ -125,15 +104,15 @@ class AlpacaInterface:
 
         return True, []
 
-    def get_shares_count(self):
+    def get_shares_count(self) -> float:
         """
         Gets the number of shares held for the ticker.
         """
         positions = self.trading_client.get_all_positions()
         for position in positions:
             if position.symbol == self.ticker:
-                return int(position.qty)
-        return 0
+                return float(position.qty)
+        return 0.0
 
     def get_buying_power(self):
         """Gets the current buying power."""
@@ -150,7 +129,7 @@ class AlpacaInterface:
         """
         return self.trading_client.get_order_by_id(order_id)
 
-    def cancel_order(self, order_id):
+    def cancel_order(self, order_id: str) -> bool:
       """Cancels an order by ID.
       
       Returns:
@@ -158,14 +137,17 @@ class AlpacaInterface:
       """
       try:
         order = self.trading_client.get_order_by_id(order_id)
-        if int(order.filled_qty) > 0:
-            self.logger.warning("Order is has some shares filled. Press Enter to continue...")
+        
         if order.status is OrderStatus.FILLED:
             self.logger.info(f"Order {order_id} is already filled.")
             return False
-        if order.status is OrderStatus.CANCELED:
+        elif order.status is OrderStatus.CANCELED:
             self.logger.warning(f"Order {order_id} is already canceled. Should be picked up by order update.")
             return False
+        
+        if int(order.filled_qty) > 0:
+            self.logger.warning(f"Order {order_id} has some shares filled.")
+
         self.trading_client.cancel_order_by_id(order_id)
         self.logger.info(f"Order {order_id} cancelled successfully.")
         return True
@@ -209,7 +191,7 @@ class AlpacaInterface:
                                   (order_side == OrderSide.SELL and current_price > price)
               
               if not price_is_favorable:
-                  self.logger.warning(f"Current price ${current_price} is not favorable compared to limit price ${price}. Order not placed.")
+                  self.logger.warning(f"Current price ${current_price} is not favorable compared to expected order price ${price}. Order not placed.")
                   return None
                   
               # Create market order request for fractional shares

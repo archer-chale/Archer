@@ -12,18 +12,18 @@
 #     def setUp(self):
 #         """Set up test fixtures before each test method."""
 #         # Create mock objects for the dependencies
-#         self.mock_csv_manager = Mock()
+#         self.mock_csv_service = Mock()
 #         self.mock_alpaca_interface = Mock()
         
 #         # Configure the mocks with default return values
-#         self.mock_csv_manager.get_pending_order_info.return_value = None
+#         self.mock_csv_service.get_pending_order_info.return_value = None
 #         self.mock_alpaca_interface.get_shares_count.return_value = 10
-#         self.mock_csv_manager.get_current_held_shares.return_value = 10
-#         self.mock_csv_manager.ticker = "AAPL"
+#         self.mock_csv_service.get_current_held_shares.return_value = 10
+#         self.mock_csv_service.ticker = "AAPL"
         
 #         # Create an instance of DecisionMaker with the mocks
 #         self.decision_maker = DecisionMaker(
-#             self.mock_csv_manager,
+#             self.mock_csv_service,
 #             self.mock_alpaca_interface
 #         )
 
@@ -32,14 +32,14 @@
 #         # Assertions for the initialization with no pending order
 #         self.assertIsNone(self.decision_maker.pending_order)
 #         self.assertIsNone(self.decision_maker.pending_order_index)
-#         self.mock_csv_manager.get_pending_order_info.assert_called_once()
+#         self.mock_csv_service.get_pending_order_info.assert_called_once()
 #         self.mock_alpaca_interface.get_shares_count.assert_called_once()
-#         self.mock_csv_manager.get_current_held_shares.assert_called_once()
+#         self.mock_csv_service.get_current_held_shares.assert_called_once()
 
 #     # def test_init_with_pending_order(self):
 #         """Test initialization with a pending order."""
 #         # Reset mocks
-#         self.mock_csv_manager.reset_mock()
+#         self.mock_csv_service.reset_mock()
 #         self.mock_alpaca_interface.reset_mock()
         
 #         # Configure mocks for this test case
@@ -50,7 +50,7 @@
 #         mock_order.filled_avg_price = 0
 #         mock_order.side = "buy"
         
-#         self.mock_csv_manager.get_pending_order_info.return_value = {
+#         self.mock_csv_service.get_pending_order_info.return_value = {
 #             "order_id": "test_order_id",
 #             "index": 1
 #         }
@@ -58,7 +58,7 @@
         
 #         # Create a new instance with the configured mocks
 #         decision_maker = DecisionMaker(
-#             self.mock_csv_manager,
+#             self.mock_csv_service,
 #             self.mock_alpaca_interface
 #         )
         
@@ -70,17 +70,17 @@
 #     def test_init_share_count_mismatch(self):
 #         """Test initialization with mismatched share counts."""
 #         # Reset mocks
-#         self.mock_csv_manager.reset_mock()
+#         self.mock_csv_service.reset_mock()
 #         self.mock_alpaca_interface.reset_mock()
         
 #         # Configure mocks for this test case
 #         self.mock_alpaca_interface.get_shares_count.return_value = 10
-#         self.mock_csv_manager.get_current_held_shares.return_value = 5
+#         self.mock_csv_service.get_current_held_shares.return_value = 5
         
 #         # Expect a ValueError due to share count mismatch
 #         with self.assertRaises(ValueError):
 #             DecisionMaker(
-#                 self.mock_csv_manager,
+#                 self.mock_csv_service,
 #                 self.mock_alpaca_interface
 #             )
 
@@ -101,7 +101,7 @@
 #         self.decision_maker.handle_order_update()
         
 #         # Verify that update_order_status was called with correct parameters
-#         self.mock_csv_manager.update_order_status.assert_called_once_with(
+#         self.mock_csv_service.update_order_status.assert_called_once_with(
 #             1, 5, 150.00, "buy"
 #         )
 
@@ -122,7 +122,7 @@
 #         self.decision_maker.handle_order_update()
         
 #         # Verify that update_order_status was called with correct parameters
-#         self.mock_csv_manager.update_order_status.assert_called_once_with(
+#         self.mock_csv_service.update_order_status.assert_called_once_with(
 #             1, 0, 0, "buy"
 #         )
 
@@ -139,7 +139,7 @@
         
 #         for status in pending_statuses:
 #             # Reset mock and configure order with pending status
-#             self.mock_csv_manager.reset_mock()
+#             self.mock_csv_service.reset_mock()
 #             mock_order = Mock()
 #             mock_order.status = status
             
@@ -151,7 +151,7 @@
 #             self.decision_maker.handle_order_update()
             
 #             # Verify that update_order_status was NOT called
-#             self.mock_csv_manager.update_order_status.assert_not_called()
+#             self.mock_csv_service.update_order_status.assert_not_called()
 
 #     def test_handle_order_update_unexpected(self):
 #         """Test handling of an unexpected order status."""
@@ -258,7 +258,7 @@
 #             {"index": "1", "target_shares": "5", "held_shares": "0", "buy_price": "99.00"},
 #             {"index": "2", "target_shares": "5", "held_shares": "0", "buy_price": "98.00"}
 #         ]
-#         self.mock_csv_manager.get_rows_for_buy.return_value = rows_to_buy
+#         self.mock_csv_service.get_rows_for_buy.return_value = rows_to_buy
         
 #         # Configure mock order
 #         mock_order = Mock()
@@ -288,13 +288,13 @@
 #         self.assertEqual(self.decision_maker.pending_order_index, 2)  # Highest index (lowest price)
         
 #         # Verify that CSV was updated and saved
-#         self.mock_csv_manager.save.assert_called_once()
+#         self.mock_csv_service.save.assert_called_once()
 #         self.assertTrue(result)
 
 #     def test_check_place_buy_order_no_rows(self):
 #         """Test no buy order placed when no rows are found."""
 #         # Configure CSV manager to return no rows for buy
-#         self.mock_csv_manager.get_rows_for_buy.return_value = []
+#         self.mock_csv_service.get_rows_for_buy.return_value = []
         
 #         # Test buy order placement with current price
 #         result = self.decision_maker._check_place_buy_order(98.50)
@@ -311,7 +311,7 @@
 #         rows_to_buy = [
 #             {"index": "1", "target_shares": "5", "held_shares": "0", "buy_price": "99.00"}
 #         ]
-#         self.mock_csv_manager.get_rows_for_buy.return_value = rows_to_buy
+#         self.mock_csv_service.get_rows_for_buy.return_value = rows_to_buy
         
 #         # Configure submit_order to raise an exception
 #         self.mock_alpaca_interface.submit_order.side_effect = Exception("Submit order error")
@@ -332,7 +332,7 @@
 #             {"index": "3", "held_shares": "3", "sell_price": "101.00"},
 #             {"index": "4", "held_shares": "7", "sell_price": "102.00"}
 #         ]
-#         self.mock_csv_manager.get_rows_for_sell.return_value = rows_to_sell
+#         self.mock_csv_service.get_rows_for_sell.return_value = rows_to_sell
         
 #         # Configure mock order
 #         mock_order = Mock()
@@ -358,13 +358,13 @@
 #         self.assertEqual(self.decision_maker.pending_order_index, 3)  # Lowest index (lowest price)
         
 #         # Verify that CSV was updated and saved
-#         self.mock_csv_manager.save.assert_called_once()
+#         self.mock_csv_service.save.assert_called_once()
 #         self.assertTrue(result)
 
 #     def test_check_place_sell_order_no_rows(self):
 #         """Test no sell order placed when no rows are found."""
 #         # Configure CSV manager to return no rows for sell
-#         self.mock_csv_manager.get_rows_for_sell.return_value = []
+#         self.mock_csv_service.get_rows_for_sell.return_value = []
         
 #         # Test sell order placement with current price
 #         result = self.decision_maker._check_place_sell_order(101.50)
@@ -381,7 +381,7 @@
 #         rows_to_sell = [
 #             {"index": "3", "held_shares": "5", "sell_price": "101.00"}
 #         ]
-#         self.mock_csv_manager.get_rows_for_sell.return_value = rows_to_sell
+#         self.mock_csv_service.get_rows_for_sell.return_value = rows_to_sell
         
 #         # Configure submit_order to raise an exception
 #         self.mock_alpaca_interface.submit_order.side_effect = Exception("Submit order error")

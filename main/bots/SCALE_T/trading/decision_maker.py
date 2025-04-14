@@ -2,37 +2,40 @@ import queue
 import threading
 import asyncio
 import sys
-from alpaca.trading.enums import OrderStatus
+from typing import Tuple
+import time
+
+from alpaca.trading.enums import OrderStatus, OrderType, OrderSide
 from alpaca.trading.requests import LimitOrderRequest
-from alpaca.trading.enums import OrderSide
+from alpaca.trading.models import Order 
 from alpaca.trading.stream import TradingStream
 from alpaca.data.live.stock import StockDataStream
 from alpaca.data.enums import DataFeed
+from alpaca.data.models.trades import Trade
 
 from main.bots.SCALE_T.common.logging_config import get_logger
 from main.bots.SCALE_T.common.notify import send_notification
+from main.bots.SCALE_T.common.constants import TradingType
 
 class DecisionMaker:
-    def __init__(self, csv_manager, alpaca_interface):
+    def __init__(self, csv_service, alpaca_interface):
         self.logger = get_logger("decision_maker")
-        self.logger.info(f"Initializing DecisionMaker for {csv_manager.ticker}")
-        self.csv_manager = csv_manager
+        self.logger.info(f"Initializing DecisionMaker for {csv_service.ticker}")
+        self.csv_service = csv_service
         self.alpaca_interface = alpaca_interface
         self.action_queue = queue.Queue()
         self.last_manual_update_time = 0  # Timestamp of last manual order update
 
         self.logger.info(f"Initializing pending order variables.")
-        pending_order_info = self.csv_manager.get_pending_order_info()
+        pending_order_info = self.csv_service.get_pending_order_info()
         if pending_order_info:
             order_id = pending_order_info["order_id"]
             if order_id is not None: #Check if order_id is None
                 self.logger.info(f"Pending order found: {order_id} at index {pending_order_info['index']}")
-                self.pending_order = self.alpaca_interface.get_order_by_id(
-                    order_id
-                )
+                self.pending_order = self.alpaca_interface.get_order_by_id(order_id)
                 self.pending_order_index = pending_order_info["index"]
                 self.logger.info(f"Pending order initialized: {self.pending_order}. Handling order update.")
-                self.handle_order_update()
+                self.handle_order_update(self.pending_order)
             else:
                 self.logger.error("Pending order found but order_id is None. Exciting")
                 sys.exit()
@@ -53,25 +56,33 @@ class DecisionMaker:
 
     def _check_share_count(self):
         alpaca_shares = self.alpaca_interface.get_shares_count()
-        csv_shares = self.csv_manager.get_current_held_shares()
+        csv_shares = self.csv_service.get_current_held_shares()
         if alpaca_shares != csv_shares:
             self.logger.error(f"Mismatch in shares: Alpaca ({alpaca_shares}) vs CSV ({csv_shares}). Exiting.")
             sys.exit()
         self.logger.info(f"Shares count verified: Alpaca ({alpaca_shares}) vs CSV ({csv_shares})")
 
-    def handle_order_update(self):
-        status = self.pending_order.status
-        filled_qty = int(self.pending_order.filled_qty)
-        filled_avg_price = self.pending_order.filled_avg_price
-        self.logger.info(f"Handling order update. Order status: {status}, Order ID: {self.pending_order.id if self.pending_order else 'N/A'}")
+    def handle_order_update(self, order: Order):
+        if not self.pending_order:
+            self.logger.warning("THERE IS NO ORDER TO WARRRANT AN ORDER UPDATE. Can't update. POSSIBLE BUG OR DUPLICATE ORDER UPDATE")
+            return
+        if self.pending_order.id != order.id:
+            self.logger.warning(f"Mismatch. Current pid:{self.pending_order.id}, update_pid:{order.id}")
+            self.logger.warning("Dropping order update")
+            return
+        self.logger.debug(f"Handling order update. Current pending order is {self.pending_order}")
+        self.logger.debug(f"Incoming order {order}")
+        self.logger.debug(f"At index {self.pending_order_index} of type {type(self.pending_order_index)}")
+        status = order.status
+        filled_qty = float(order.filled_qty)
+        filled_avg_price = float(order.filled_avg_price) if order.filled_avg_price is not None else None 
+        side = order.side 
+        self.logger.info(f"Handling order update. Order status: {status}, Order ID: {order.id}")
         if status == OrderStatus.FILLED:
             self.logger.info("Order filled")
-            self.logger.info(f"Order status: FILLED. Filled quantity: {filled_qty}, Filled average price: {filled_avg_price}, Order side: {self.pending_order.side}")
-            # if filled_qty != 1 and self.pending_order.side == 'buy':
-            #     in
-            #input("Approve FILLED order handling? (press Enter to continue)")
-            side = self.pending_order.side
-            self.csv_manager.update_order_status(
+            self.logger.info(f"Order status: FILLED. Filled quantity: {filled_qty}, Filled average price: {filled_avg_price}, Order side: {side}")
+
+            self.csv_service.update_order_status(
                 self.pending_order_index, filled_qty, filled_avg_price, side
             )
             self.pending_order = None
@@ -81,15 +92,14 @@ class DecisionMaker:
 
         elif status in (OrderStatus.CANCELED, OrderStatus.EXPIRED):
             self.logger.info("Order cancelled or expired")
-            self.logger.info(f"Order status: {status}. Filled quantity: {filled_qty}, Filled average price: {filled_avg_price}, Order side: {self.pending_order.side}")
+            self.logger.info(f"Order status: {status}. Filled quantity: {filled_qty}, Filled average price: {filled_avg_price}, Order side: {side}")
             #input("Approve CANCELED/EXPIRED order handling? (press Enter to continue)")
-            side = self.pending_order.side
-            self.csv_manager.update_order_status(self.pending_order_index, filled_qty, filled_avg_price, side)
+            self.csv_service.update_order_status(self.pending_order_index, filled_qty, filled_avg_price, side)
             # Clear pending_order_id in CSV
-            row = self.csv_manager.get_row_by_index(self.pending_order_index)
+            row = self.csv_service.get_row_by_index(self.pending_order_index)
             if row:
                 row['pending_order_id'] = "None"
-                self.csv_manager.save()
+                self.csv_service.save()
                 
             # Reset pending order variables
             self.pending_order = None
@@ -113,8 +123,17 @@ class DecisionMaker:
 
     def _check_cancel_order(self, current_price):
         if self.pending_order:
-            if self.pending_order.side == 'buy' and current_price >= float(self.pending_order.limit_price) * 1.0025:
-                self.logger.info(f"Decision: Cancelling buy order. Order ID: {self.pending_order.id}, Limit price: {self.pending_order.limit_price}, Current price: {current_price}")
+            order_price = 0
+            if self.pending_order.order_type == OrderType.MARKET:
+                associated_csv_line = self.csv_service.get_row_by_index(self.pending_order_index)
+                if self.pending_order.side == 'buy':
+                    order_price = associated_csv_line["buy_price"]
+                else :
+                    order_price = associated_csv_line["sell_price"]
+            else :
+                order_price = self.pending_order.limit_price
+            if self.pending_order.side == 'buy' and current_price >= float(order_price) * 1.0025:
+                self.logger.info(f"Decision: Cancelling buy order. Order ID: {self.pending_order.id}, Expected price: {order_price}, Current price: {current_price}")
                 send_notification("Bot needs help", "SomeDetails")
                 #input("Approve buy order cancellation? (press Enter to continue)")
                 cancel_success = self.alpaca_interface.cancel_order(self.pending_order.id)
@@ -125,8 +144,8 @@ class DecisionMaker:
                     return True  # Still indicate cancellation was attempted
                 self.logger.info(f"Cancelled buy order due to price increase. Order ID: {self.pending_order.id}")
                 return True  # Indicate that a cancellation occurred
-            elif self.pending_order.side == 'sell' and current_price <= float(self.pending_order.limit_price) * 0.9975:
-                self.logger.info(f"Decision: Cancelling sell order. Order ID: {self.pending_order.id}, Limit price: {self.pending_order.limit_price}, Current price: {current_price}")
+            elif self.pending_order.side == 'sell' and current_price <= float(order_price) * 0.9975:
+                self.logger.info(f"Decision: Cancelling sell order. Order ID: {self.pending_order.id}, Expected price: {order_price}, Current price: {current_price}")
                 send_notification("Bot needs help", "SomeDetails")
                 #input("Approve sell order cancellation? (press Enter to continue)")
                 cancel_success = self.alpaca_interface.cancel_order(self.pending_order.id)
@@ -145,12 +164,12 @@ class DecisionMaker:
         Only triggers the update once per minute to avoid excessive updates.
         Uses direct Alpaca objects and places them in the queue for consistent handling.
         """
-        import time
+        from datetime import datetime as dt
         from alpaca.trading import TradeUpdate
         
         current_time = time.time()
-        # Check if it's been at least 60 seconds since the last manual update
-        if current_time - self.last_manual_update_time < 60:
+        # Check if it's been at least 10 seconds since the last manual update
+        if current_time - self.last_manual_update_time < 10:
             self.logger.info(f"Skipping manual order update - last update was less than a minute ago")
             return
             
@@ -161,10 +180,10 @@ class DecisionMaker:
                 latest_order = self.alpaca_interface.get_order_by_id(self.pending_order.id)
                 
                 # Create a proper TradeUpdate object that matches what comes from the Alpaca stream
-                trade_update = TradeUpdate(order=latest_order, event='manual_update')
+                trade_update = TradeUpdate(order=latest_order, event='order_update', timestamp=dt.utcnow())
                 
                 # Queue the update just like the websocket would
-                self.action_queue.put({'type': 'order_update', 'data': trade_update})
+                self.action_queue.put({'type': 'order_update', 'data': trade_update, 'source': 'manual'})
                 
                 self.logger.info(f"Manually triggered order update for order ID: {latest_order.id}")
                 self.logger.info(f"Order status: {latest_order.status}")
@@ -177,9 +196,10 @@ class DecisionMaker:
 
 
     def _check_place_buy_order(self, current_price):
-        self.logger.debug(f"Checking to place buy order.{current_price}")
-        rows_to_buy = self.csv_manager.get_rows_for_buy(current_price)
+        rows_to_buy = self.csv_service.get_rows_for_buy(current_price)
         if rows_to_buy:
+            self.logger.info(f"Checked to place buy order at price {current_price}")
+            self.logger.debug(f"Rows to buy: {len(rows_to_buy)}")
             # If we have a pending sell order but want to buy, cancel the sell order first
             if self.pending_order and self.pending_order.side == 'sell':
                 self.logger.info(f"Cancelling pending sell order to place buy order. Order ID: {self.pending_order.id}")
@@ -195,12 +215,19 @@ class DecisionMaker:
             elif self.pending_order and self.pending_order.side == 'buy':
                 self.logger.debug("Pending buy order found. Skipping buy order placement.")
                 return False
-            total_qty_to_buy = sum(int(row['target_shares']) - int(row['held_shares']) for row in rows_to_buy)
+
+            total_qty_to_buy = sum(float(row['target_shares']) - float(row['held_shares']) for row in rows_to_buy)
+            # We need to place whole orders before fractional orders
+            # Check if order amount is greater than 1 + trim the decimals and place order
+            # Otherwise just place order(Covers everything less than one and whole shares off the bat)
+            if total_qty_to_buy > 1 and total_qty_to_buy % 1 > 0:
+                self.logger.debug(f"Wanted to buy {total_qty_to_buy} but trimming to {int(total_qty_to_buy)}")
+                total_qty_to_buy = int(total_qty_to_buy)
             # Find the row with the lowest buy_price (highest index)
             row_to_buy = rows_to_buy[-1]
             buy_price = float(row_to_buy['buy_price'])
             limit_price = round(min(current_price + 0.01, buy_price), 2)
-            if total_qty_to_buy < 1:
+            if total_qty_to_buy < 0.01:  # Support fractional shares
                 return False
 
             buy_has_unrealized_profit = buy_price != limit_price
@@ -220,7 +247,8 @@ class DecisionMaker:
                 self.pending_order = order
                 self.pending_order_index = int(row_to_buy['index'])
                 row_to_buy['pending_order_id'] = order.id
-                self.csv_manager.save()
+                self.csv_service.save()
+                self.last_manual_update_time = time.time() # keep record of when order was placed
                 return True
             except Exception as e:
                 self.logger.error(f"Error placing buy order: {e}")
@@ -228,10 +256,10 @@ class DecisionMaker:
         return False
     
     def _check_place_sell_order(self, current_price):
-        self.logger.debug(f"Checking to place sell order.{current_price}")
-        rows_to_sell = self.csv_manager.get_rows_for_sell(current_price)
-        self.logger.debug(f"Rows to sell: {len(rows_to_sell)}")
+        rows_to_sell = self.csv_service.get_rows_for_sell(current_price)
         if rows_to_sell:
+            self.logger.info(f"Checked to place sell order at price {current_price}")
+            self.logger.debug(f"Rows to sell: {len(rows_to_sell)}")
             # If we have a pending buy order but want to sell, cancel the buy order first
             if self.pending_order and self.pending_order.side == 'buy':
                 self.logger.info(f"Cancelling pending buy order to place sell order. Order ID: {self.pending_order.id}")
@@ -245,8 +273,16 @@ class DecisionMaker:
                 # self._refresh_pending_order()
                 return True  # Return after cancellation to wait for order update
             elif self.pending_order and self.pending_order.side == 'sell':
+                self.logger.debug(f"Skipping sell order as there is already a pendingOrder of sell")
                 return False
-            total_qty_to_sell = sum(int(row['held_shares']) for row in rows_to_sell)
+
+            total_qty_to_sell = sum(float(row['held_shares']) for row in rows_to_sell)
+            # We need to place whole orders before fractional orders
+            # Check if order amount is greater than 1 + trim the decimals and place order
+            # Otherwise just place order(Covers everything less than one and whole shares off the bat)
+            if total_qty_to_sell > 1 and total_qty_to_sell % 1 > 0:
+                self.logger.debug(f"Wanted to sell {total_qty_to_sell} but trimming to {int(total_qty_to_sell)}")
+                total_qty_to_sell = int(total_qty_to_sell)
             row_to_sell = rows_to_sell[0]
             sell_price = float(row_to_sell['sell_price'])
             limit_price = round(max(current_price - 0.01, sell_price), 2)
@@ -272,14 +308,15 @@ class DecisionMaker:
                 self.logger.info(f"Row to sell index: {row_to_sell['index']}")
                 self.pending_order_index = int(row_to_sell['index'])
                 row_to_sell['pending_order_id'] = order.id
-                self.csv_manager.save()
+                self.csv_service.save()
+                self.last_manual_update_time = time.time() # keep record of when order was placed
                 return True #Indicate that we placed a sell order
             except Exception as e:
                 self.logger.error(f"Error placing sell order: {e}")
                 return False
         return False
 
-    def _filter_price_data(self, price):    
+    def _filter_price_data(self, price: float) -> float | None:    
         if price == self._prev_price:
             return None
         price = round(price, 2)
@@ -309,11 +346,10 @@ class DecisionMaker:
             message = self.action_queue.get()
             # self.logger.info(f"Consuming action: {message['type']}")
             if message['type'] == 'order_update':
-                if self.pending_order and self.pending_order.id != message['data'].order.id:
-                    self.logger.info("Got an order update")
-                    # print(f"Received order update for different order. Pending order ID: {self.pending_order.id}, Received order ID: {message['data'].order.id}")
-                self.pending_order = message['data'].order
-                self.handle_order_update()
+                # Trying to filter out order updates that shouldn't be coming in
+                # self.pending_order = message['data'].order
+                self.logger.info(f"Handling order update from {message.get('source','unknown')}")
+                self.handle_order_update(message['data'].order)
             elif message['type'] == 'price_update':
                 self.handle_price_update(message['data'])
             self.action_queue.task_done()
@@ -328,16 +364,16 @@ class DecisionMaker:
         trading_stream = TradingStream(
             self.alpaca_interface.api_key,
             self.alpaca_interface.secret_key,
-            paper=self.alpaca_interface.trading_type == 'paper'
+            paper=(self.alpaca_interface.trading_type == TradingType.PAPER)
         )
 
         async def update_handler(data):
             self.logger.debug("Received order update")
-            message = {'type': 'order_update', 'data': data}
+            message = {'type': 'order_update', 'data': data, 'source': 'alpaca'}
             self.action_queue.put(message)
             self.logger.info(f"Order update received for order ID: {data.order.id}")
             self.logger.info(f"Order status: {data.order.status}")
-            self.logger.info(f"Order event: {data.event}")
+            self.logger.info(f"Order event: {data.event} from alpaca not manual")
 
         trading_stream.subscribe_trade_updates(update_handler)
         trading_stream.run()
@@ -349,10 +385,10 @@ class DecisionMaker:
             feed = DataFeed.SIP
         )
 
-        async def price_handler(data):
-            self.logger.debug("Received price update")
+        async def price_handler(data: Trade | dict) -> None:
+            # self.logger.debug(f"Received price update: {data.price}")
             message = {'type': 'price_update', 'data': data.price} # Modified line
             self.action_queue.put(message)
 
-        stock_stream.subscribe_trades(price_handler, self.csv_manager.ticker)
+        stock_stream.subscribe_trades(price_handler, self.csv_service.ticker)
         stock_stream.run()
