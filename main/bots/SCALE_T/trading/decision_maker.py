@@ -25,6 +25,7 @@ class DecisionMaker:
         self.alpaca_interface = alpaca_interface
         self.action_queue = queue.Queue()
         self.last_manual_update_time = 0  # Timestamp of last manual order update
+        self.manual_update_interval_sec = 10
 
         self.logger.info(f"Initializing pending order variables.")
         pending_order_info = self.csv_service.get_pending_order_info()
@@ -169,8 +170,8 @@ class DecisionMaker:
         
         current_time = time.time()
         # Check if it's been at least 10 seconds since the last manual update
-        if current_time - self.last_manual_update_time < 10:
-            self.logger.info(f"Skipping manual order update - last update was less than a minute ago")
+        if current_time - self.last_manual_update_time < self.manual_update_interval_sec:
+            self.logger.info(f"Skipping manual order update - last update was less than a {self.manual_update_interval_sec} secs ago")
             return
             
         if self.pending_order:
@@ -198,8 +199,6 @@ class DecisionMaker:
     def _check_place_buy_order(self, current_price):
         rows_to_buy = self.csv_service.get_rows_for_buy(current_price)
         if rows_to_buy:
-            self.logger.info(f"Checked to place buy order at price {current_price}")
-            self.logger.debug(f"Rows to buy: {len(rows_to_buy)}")
             # If we have a pending sell order but want to buy, cancel the sell order first
             if self.pending_order and self.pending_order.side == 'sell':
                 self.logger.info(f"Cancelling pending sell order to place buy order. Order ID: {self.pending_order.id}")
@@ -215,6 +214,9 @@ class DecisionMaker:
             elif self.pending_order and self.pending_order.side == 'buy':
                 self.logger.debug("Pending buy order found. Skipping buy order placement.")
                 return False
+
+            self.logger.info(f"Checked to place buy order at price {current_price}")
+            self.logger.debug(f"Rows to buy: {len(rows_to_buy)}")
 
             total_qty_to_buy = sum(float(row['target_shares']) - float(row['held_shares']) for row in rows_to_buy)
             # We need to place whole orders before fractional orders
@@ -258,8 +260,6 @@ class DecisionMaker:
     def _check_place_sell_order(self, current_price):
         rows_to_sell = self.csv_service.get_rows_for_sell(current_price)
         if rows_to_sell:
-            self.logger.info(f"Checked to place sell order at price {current_price}")
-            self.logger.debug(f"Rows to sell: {len(rows_to_sell)}")
             # If we have a pending buy order but want to sell, cancel the buy order first
             if self.pending_order and self.pending_order.side == 'buy':
                 self.logger.info(f"Cancelling pending buy order to place sell order. Order ID: {self.pending_order.id}")
@@ -275,6 +275,9 @@ class DecisionMaker:
             elif self.pending_order and self.pending_order.side == 'sell':
                 self.logger.debug(f"Skipping sell order as there is already a pendingOrder of sell")
                 return False
+
+            self.logger.info(f"Checked to place sell order at price {current_price}")
+            self.logger.debug(f"Rows to sell: {len(rows_to_sell)}")
 
             total_qty_to_sell = sum(float(row['held_shares']) for row in rows_to_sell)
             # We need to place whole orders before fractional orders
