@@ -93,12 +93,60 @@ class TestCsvCore(unittest.TestCase):
         self.assertEqual(ret, {})
 
     # get_required columns
+    def test_get_required_columns_with_required_columns(self):
+        """Test that required columns are correctly identified from metadata."""
+        self.test_csv_core1.metadata = {
+            "versions": [
+                {
+                    "columns": [
+                        {"name": "index", "config": {"required": True}},
+                        {"name": "target_shares", "config": {"required": True}},
+                        {"name": "buy_price", "config": {"required": False}}
+                    ]
+                }
+            ]
+        }
+        result = self.test_csv_core1._get_required_columns()
+        self.assertEqual(result, ["index", "target_shares"])
+
+    def test_get_required_columns_empty_result(self):
+        """Test that empty list is returned when no columns are required."""
+        self.test_csv_core1.metadata = {
+            "versions": [
+                {
+                    "columns": [
+                        {"name": "column1", "config": {"required": False}},
+                        {"name": "column2", "config": {}}
+                    ]
+                }
+            ]
+        }
+        result = self.test_csv_core1._get_required_columns()
+        self.assertEqual(result, [])
+
+    def test_get_required_columns_empty_metadata(self):
+        """Test that empty list is returned when metadata is empty."""
+        self.test_csv_core1.metadata = {}
+        result = self.test_csv_core1._get_required_columns()
+        self.assertEqual(result, [])
+
+    def test_get_required_columns_no_versions(self):
+        """Test that empty list is returned when versions key is missing."""
+        self.test_csv_core1.metadata = {"other_key": "value"}
+        result = self.test_csv_core1._get_required_columns()
+        self.assertEqual(result, [])
+
+    def test_get_required_columns_empty_versions(self):
+        """Test that empty list is returned when versions list is empty."""
+        self.test_csv_core1.metadata = {"versions": []}
+        result = self.test_csv_core1._get_required_columns()
+        self.assertEqual(result, [])
+
     # validate_csv_data
     # get_column_names
     # _save_csv_data
     # save
     # get_epoch time
-
 
 if __name__=="__main__":
     unittest.main()
