@@ -17,7 +17,7 @@ from main.bots.SCALE_T.common.logging_config import get_logger
 from main.bots.SCALE_T.common.notify import send_notification
 from main.bots.SCALE_T.common.constants import TradingType
 
-from .constants import MessageType
+from .constants import MessageType, OrderState
 
 class DecisionMaker:
     def __init__(self, csv_service, alpaca_interface):
@@ -39,6 +39,7 @@ class DecisionMaker:
                 self.pending_order_index = pending_order_info["index"]
                 self.logger.info(f"Pending order initialized: {self.pending_order}. Handling order update.")
                 self.handle_order_update(self.pending_order)
+                self.order_state = OrderState.BUYING if self.pending_order.side == OrderSide.BUY else OrderState.SELLING
             else:
                 self.logger.error("Pending order found but order_id is None. Exciting")
                 sys.exit()
@@ -46,6 +47,7 @@ class DecisionMaker:
             self.logger.debug("No pending order found.")
             self.pending_order = None
             self.pending_order_index = None
+            self.order_state = OrderState.NONE
 
         # Get initial price and put it on the queue
         self.logger.info("Getting initial price and putting it on the queue.")
@@ -90,6 +92,7 @@ class DecisionMaker:
             )
             self.pending_order = None
             self.pending_order_index = None
+            self.order_state = OrderState.NONE
             self.logger.info("Order filled and handled successfully. Checking share count.")
             self._check_share_count()
 
@@ -107,6 +110,7 @@ class DecisionMaker:
             # Reset pending order variables
             self.pending_order = None
             self.pending_order_index = None
+            self.order_state = OrderState.NONE
 
             self.logger.info("Checking share count after order reset.")
             self._check_share_count()
@@ -140,6 +144,7 @@ class DecisionMaker:
                 send_notification("Bot needs help", "SomeDetails")
                 #input("Approve buy order cancellation? (press Enter to continue)")
                 cancel_success = self.alpaca_interface.cancel_order(self.pending_order.id)
+                self.order_state = OrderState.CANCELLING
                 if not cancel_success:
                     self.logger.warning(f"Failed to cancel buy order ID: {self.pending_order.id}, manually triggering order update")
                     # Manually trigger order update in the queue to catch any missed updates
@@ -152,6 +157,7 @@ class DecisionMaker:
                 send_notification("Bot needs help", "SomeDetails")
                 #input("Approve sell order cancellation? (press Enter to continue)")
                 cancel_success = self.alpaca_interface.cancel_order(self.pending_order.id)
+                self.order_state = OrderState.CANCELLING
                 if not cancel_success:
                     self.logger.warning(f"Failed to cancel sell order ID: {self.pending_order.id}, manually triggering order update")
                     # Manually trigger order update in the queue to catch any missed updates
@@ -207,6 +213,7 @@ class DecisionMaker:
                 send_notification("Bot needs help", "SomeDetails")
                 #input("Approve cancellation of sell order to place buy order? (press Enter to continue)")
                 cancel_success = self.alpaca_interface.cancel_order(self.pending_order.id)
+                self.order_state = OrderState.CANCELLING
                 if not cancel_success:
                     self.logger.warning(f"Failed to cancel sell order ID: {self.pending_order.id} for buy placement, manually triggering order update")
                     # Manually trigger order update in the queue to catch any missed updates
@@ -245,6 +252,7 @@ class DecisionMaker:
                 send_notification("Bot needs help", "SomeDetails")
             try:
                 order = self.alpaca_interface.place_order(OrderSide.BUY, limit_price, total_qty_to_buy)
+                self.order_state = OrderState.BUYING
                 if order is None:
                     self.logger.error("Failed to place buy order")
                     return False
@@ -268,6 +276,7 @@ class DecisionMaker:
                 send_notification("Bot needs help", "SomeDetails")
                 #input("Approve cancellation of buy order to place sell order? (press Enter to continue)")
                 cancel_success = self.alpaca_interface.cancel_order(self.pending_order.id)
+                self.order_state = OrderState.CANCELLING
                 if not cancel_success:
                     self.logger.warning(f"Failed to cancel buy order ID: {self.pending_order.id} for sell placement, manually triggering order update")
                     # Manually trigger order update in the queue to catch any missed updates
@@ -306,6 +315,7 @@ class DecisionMaker:
             self.logger.info("Placing sell order.")
             try:
                 order = self.alpaca_interface.place_order(OrderSide.SELL, limit_price, total_qty_to_sell)
+                self.order_state = OrderState.SELLING
                 if order is None:
                     self.logger.error("Failed to place sell order")
                     return False
@@ -329,6 +339,9 @@ class DecisionMaker:
         return price
 
     def handle_price_update(self, price):
+        if self.order_state == OrderState.CANCELLING:
+            return
+
         current_price = self._filter_price_data(price)
         if current_price is None:
             return
@@ -355,7 +368,7 @@ class DecisionMaker:
                 # self.pending_order = message['data'].order
                 self.logger.info(f"Handling order update from {message.get('source','unknown')}")
                 self.handle_order_update(message['data'].order)
-            elif message['type'] == 'price_update':
+            elif message['type'] == 'price_update':                    
                 self.handle_price_update(message['data'])
             else :
                 self.logger.error(f"Recieved an unknown message with type: {message['type']}")
