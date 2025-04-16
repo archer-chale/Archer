@@ -17,6 +17,8 @@ from main.bots.SCALE_T.common.logging_config import get_logger
 from main.bots.SCALE_T.common.notify import send_notification
 from main.bots.SCALE_T.common.constants import TradingType
 
+from .constants import MessageType
+
 class DecisionMaker:
     def __init__(self, csv_service, alpaca_interface):
         self.logger = get_logger("decision_maker")
@@ -181,10 +183,10 @@ class DecisionMaker:
                 latest_order = self.alpaca_interface.get_order_by_id(self.pending_order.id)
                 
                 # Create a proper TradeUpdate object that matches what comes from the Alpaca stream
-                trade_update = TradeUpdate(order=latest_order, event='order_update', timestamp=dt.utcnow())
+                trade_update = TradeUpdate(order=latest_order, event=MessageType.ORDER_UPDATE.value, timestamp=dt.utcnow())
                 
                 # Queue the update just like the websocket would
-                self.action_queue.put({'type': 'order_update', 'data': trade_update, 'source': 'manual'})
+                self.action_queue.put({'type': MessageType.ORDER_UPDATE, 'data': trade_update, 'source': 'manual'})
                 
                 self.logger.info(f"Manually triggered order update for order ID: {latest_order.id}")
                 self.logger.info(f"Order status: {latest_order.status}")
@@ -348,13 +350,16 @@ class DecisionMaker:
         while True:
             message = self.action_queue.get()
             # self.logger.info(f"Consuming action: {message['type']}")
-            if message['type'] == 'order_update':
+            if message['type'] == MessageType.ORDER_UPDATE:
                 # Trying to filter out order updates that shouldn't be coming in
                 # self.pending_order = message['data'].order
                 self.logger.info(f"Handling order update from {message.get('source','unknown')}")
                 self.handle_order_update(message['data'].order)
             elif message['type'] == 'price_update':
                 self.handle_price_update(message['data'])
+            else :
+                self.logger.error(f"Recieved an unknown message with type: {message['type']}")
+                self.logger.error(f"message: {message}")
             self.action_queue.task_done()
 
     def launch_action_producer_threads(self):
@@ -372,7 +377,7 @@ class DecisionMaker:
 
         async def update_handler(data):
             self.logger.debug("Received order update")
-            message = {'type': 'order_update', 'data': data, 'source': 'alpaca'}
+            message = {'type': MessageType.ORDER_UPDATE, 'data': data, 'source': 'alpaca'}
             self.action_queue.put(message)
             self.logger.info(f"Order update received for order ID: {data.order.id}")
             self.logger.info(f"Order status: {data.order.status}")
