@@ -143,7 +143,178 @@ class TestCsvCore(unittest.TestCase):
         self.assertEqual(result, [])
 
     # validate_csv_data
+    def test_validate_csv_data_empty(self):
+        """Test that empty data validation passes without error."""
+        self.test_csv_core1.csv_data = []
+        self.test_csv_core1.validate_csv_data()  # Should return without error
+
+    def test_validate_csv_data_required_columns_present(self):
+        """Test validation with all required columns present."""
+        self.test_csv_core1.required_columns = ["index", "target_shares"]
+        self.test_csv_core1.csv_data = [{
+            "index": "1",
+            "target_shares": "100",
+            "buy_price": "10.5",
+            "sell_price": "11.0"
+        }]
+        self.test_csv_core1.validate_csv_data()  # Should not raise exception
+
+    def test_validate_csv_data_missing_required_column(self):
+        """Test validation fails when required column is missing."""
+        self.test_csv_core1.required_columns = ["index", "target_shares"]
+        self.test_csv_core1.csv_data = [{
+            "index": "1",
+            "buy_price": "10.5",
+            "sell_price": "11.0"
+        }]
+        with self.assertRaises(ValueError) as context:
+            self.test_csv_core1.validate_csv_data()
+        self.assertIn("Missing required column: target_shares", str(context.exception))
+    
+    def test_validate_csv_data_valid_numeric_types(self):
+        """Test validation with valid numeric values."""
+        self.test_csv_core1.required_columns = []  # No required columns for this test
+        self.test_csv_core1.csv_data = [{
+            "index": "1",
+            "target_shares": "100",
+            "buy_price": "10.5",
+            "sell_price": "11.0"
+        }]
+        self.test_csv_core1.validate_csv_data()  # Should not raise exception
+
+    def test_validate_csv_data_invalid_index(self):
+        """Test validation fails with non-integer index."""
+        self.test_csv_core1.required_columns = []
+        self.test_csv_core1.csv_data = [{
+            "index": "not_a_number",
+            "target_shares": "100",
+            "buy_price": "10.5",
+            "sell_price": "11.0"
+        }]
+        with self.assertRaises(ValueError):
+            self.test_csv_core1.validate_csv_data()
+
+    def test_validate_csv_data_invalid_target_shares(self):
+        """Test validation fails with non-numeric target_shares."""
+        self.test_csv_core1.required_columns = []
+        self.test_csv_core1.csv_data = [{
+            "index": "1",
+            "target_shares": "invalid",
+            "buy_price": "10.5",
+            "sell_price": "11.0"
+        }]
+        with self.assertRaises(ValueError):
+            self.test_csv_core1.validate_csv_data()
+
+    def test_validate_csv_data_invalid_prices(self):
+        """Test validation fails with non-numeric prices."""
+        self.test_csv_core1.required_columns = []
+        self.test_csv_core1.csv_data = [{
+            "index": "1",
+            "target_shares": "100",
+            "buy_price": "invalid",
+            "sell_price": "also_invalid"
+        }]
+        with self.assertRaises(ValueError):
+            self.test_csv_core1.validate_csv_data()
+
+    def test_validate_csv_data_missing_optional_fields(self):
+        """Test validation succeeds with missing optional fields (using default values)."""
+        self.test_csv_core1.required_columns = []
+        self.test_csv_core1.csv_data = [{
+            "index": "1",
+            "target_shares": "100"
+            # buy_price and sell_price are missing
+        }]
+        self.test_csv_core1.validate_csv_data()  # Should not raise exception
+
+    def test_validate_csv_data_multiple_rows(self):
+        """Test validation works across multiple rows of data."""
+        self.test_csv_core1.required_columns = []
+        self.test_csv_core1.csv_data = [
+            {
+                "index": "1",
+                "target_shares": "100",
+                "buy_price": "10.5",
+                "sell_price": "11.0"
+            },
+            {
+                "index": "2",
+                "target_shares": "200",
+                "buy_price": "20.5",
+                "sell_price": "21.0"
+            }
+        ]
+        self.test_csv_core1.validate_csv_data()  # Should not raise exception
+
+    def test_validate_csv_data_invalid_middle_row(self):
+        """Test validation fails when middle row contains invalid data."""
+        self.test_csv_core1.required_columns = []
+        self.test_csv_core1.csv_data = [
+            {
+                "index": "1",
+                "target_shares": "100",
+                "buy_price": "10.5",
+                "sell_price": "11.0"
+            },
+            {
+                "index": "2",
+                "target_shares": "invalid",  # Invalid value in middle row
+                "buy_price": "20.5",
+                "sell_price": "21.0"
+            },
+            {
+                "index": "3",
+                "target_shares": "300",
+                "buy_price": "30.5",
+                "sell_price": "31.0"
+            }
+        ]
+        with self.assertRaises(ValueError):
+            self.test_csv_core1.validate_csv_data()
+    
     # get_column_names
+    def test_get_column_names_empty_data(self):
+        """Test that empty data returns empty list of column names."""
+        self.test_csv_core1.csv_data = []
+        result = self.test_csv_core1._get_column_names()
+        self.assertEqual(result, [])
+
+    def test_get_column_names_single_row(self):
+        """Test column names are extracted from single row data."""
+        self.test_csv_core1.csv_data = [{
+            "index": "1",
+            "target_shares": "100",
+            "buy_price": "10.5",
+            "sell_price": "11.0"
+        }]
+        result = self.test_csv_core1._get_column_names()
+        self.assertEqual(result, ["index", "target_shares", "buy_price", "sell_price"])
+
+    def test_get_column_names_multiple_rows(self):
+        """Test column names are extracted from first row only with multiple rows."""
+        self.test_csv_core1.csv_data = [
+            {
+                "index": "1",
+                "target_shares": "100",
+                "buy_price": "10.5"
+            },
+            {
+                "index": "2",
+                "target_shares": "200",
+                "buy_price": "20.5",
+                "sell_price": "21.0"  # Extra column in second row should be ignored
+            }
+        ]
+        result = self.test_csv_core1._get_column_names()
+        self.assertEqual(result, ["index", "target_shares", "buy_price"])
+
+    def test_get_column_names_empty_row(self):
+        """Test with empty dictionary row returns empty list."""
+        self.test_csv_core1.csv_data = [{}]
+        result = self.test_csv_core1._get_column_names()
+        self.assertEqual(result, [])
+
     # _save_csv_data
     # save
     # get_epoch time
