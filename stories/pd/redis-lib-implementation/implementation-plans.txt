@@ -1,0 +1,88 @@
+Redis Pub/Sub Implementation Plan
+Overview
+We will develop a custom Redis-based pub/sub library in Python to facilitate real-time data distribution between trading bots and services running in Docker containers. This implementation addresses the limitation of our price broker allowing only one connection, by creating a centralized data distribution system.
+Implementation Details
+System Architecture
+Redis Service:
+Will be deployed locally via Docker container defined in docker-compose.yml
+No authentication required for local development
+Acts as the message broker for all pub/sub communications
+Custom Redis Library:
+Located at /main/shared_library/redis/
+Built on top of redis-py client
+Provides simplified API for publishing and subscribing to topics
+Handles connection management for each service
+Library Components
+Connection Manager:
+Simple connection handling for each service
+Basic error logging for connection failures (no retry mechanism)
+Configuration of Redis host/port/db
+Publisher Interface:
+Method to publish JSON messages to predefined channels
+Message validation
+Error handling for publishing failures
+Subscriber Interface:
+Channel subscription mechanism
+Callback registration for message handling
+Message filtering based on message type
+Support for custom callback functions provided by the subscribing service
+Topic/Channel Organization:
+Hard-coded string constants for channel names
+Clear naming convention for different data types
+Example channels: PRICE_DATA, TRADE_COMMANDS, BOT_STATUS
+Message Format:
+JSON-based message structure
+Standard fields: message_type, data, timestamp, sender
+Type-specific payload in the data field
+Testing Approach
+Create test publisher and subscriber services
+Unit tests for library components
+Integration tests with sample services
+Verification of message delivery and callback execution
+Usage Example
+# Publisher example
+from shared_library.redis.publisher import RedisPublisher
+from shared_library.redis.constants import CHANNELS
+from shared_library.redis.constants import CONFIG
+
+publisher = RedisPublisher(host=CONFIG.HOST, port=CONFIG.PORT)
+publisher.publish(CHANNELS.PRICE_DATA, {
+    'symbol': 'AAPL',
+    'price': 50000.00,
+    'timestamp': 1650123456
+})
+
+# Subscriber example
+from shared_library.redis.subscriber import RedisSubscriber
+from shared_library.redis.constants import CHANNELS
+from shared_library.redis.constants import CONFIG
+
+def price_handler(message):
+    print(f"Received price: {message['data']['price']} for {message['data']['symbol']}")
+
+subscriber = RedisSubscriber(host=CONFIG.HOST, port=CONFIG.PORT)
+subscriber.subscribe(CHANNELS.PRICE_DATA, price_handler)
+subscriber.start_listening()  # Starts background thread
+
+
+In Scope
+Custom Redis pub/sub library in Python
+Simple connection management
+Channel-based messaging system
+JSON message format
+Message filtering by type
+Basic error logging
+Docker-based Redis service
+Test publisher/subscriber services
+Out of Scope
+Authentication and security features
+Message persistence
+Connection retry mechanisms
+Message prioritization or QoS
+Performance optimization
+Integration with existing Firebase messaging system
+Cross-language support
+Distributed Redis setup
+Message compression
+
+

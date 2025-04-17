@@ -1,0 +1,57 @@
+What is the user story ?
+- As a trader running a docker container with bots inside, my bots will need access to the prices for example, and including other set of data
+
+Why do we need to implement this user story ?
+- The price broker we are using only allows one connection, so we need to implement a redis library to handle the connections, and we will sometimes need to send messages to the bots on how to handle the trades, including commands on to stop, stop, enter or get out of a trade and saving data to a remote database
+
+What is a high level implementation plan
+
+creating a library
+We will create a shared library folder here :main - inside the main folder create a new folder called “shared_library” - inside the shared library we will create another folder called - redis
+- We will create a redis library that any container can have access to
+- The library will allow any service to create a topic
+- The library will allow any service to subscribe to any topic
+- The library will have hard-coded strings of topic name, making easier for whoever uses the liberty to determine which topic to subscribe to
+
+For now everything will be local
+We will create a local redis service that allows pub/sub
+We will create a redis lib that will allow us to view the messages sent
+This docker container will be placed here - docker-compose.yml
+
+Ask me detailed questions to help me refine my idea
+_+_+_+_+
+Questions
+What Redis client library do you plan to use? (e.g., redis-py for Python, ioredis for Node.js)
+We will create our own library file that other service can have access to, but the actual library we will use for this implementation, it is going to be written on py so it makes sense for us to use redis-py
+Will you need to support multiple programming languages, or is this for a specific language stack?
+We are sticking with python
+What data formats will you be publishing? (JSON, serialized objects, etc.)
+This will be a json data
+Do you need persistence for messages or is this strictly for real-time data distribution?
+This will be real-time data distribution
+Architecture Details
+How will you handle connection management? Will each bot maintain its own connection or will you implement a connection pool?
+Each service/bot will use our custom redis library to connect to the pub/sub
+Do you need authentication for your Redis instance?
+No since this is all locally no oauth for now
+Will you need to implement any error handling or retry mechanisms for dropped connections?
+For now we will simply print the error, no retry implementation
+How will you structure your topic naming convention? Will you use channels, pattern matching, or both?
+We will use channels
+Implementation Specifics
+Do you need message filtering capabilities at the subscription level?
+Yes, within the object we can determine which type of message it is based on that determine which call back function to call - I image that the service that is subscribing will provide our custom library with a custom call back function that gets called whenever a new messages comes in
+Will you need to support any kind of message priority or quality of service?
+No out of scope
+Are there any specific performance requirements (message throughput, latency)?
+No
+How will you test this library both in isolation and integrated with your bots?
+We can create test publisher service and test subscriber service to confirm it is working properly
+Integration Questions
+How will this Redis implementation relate to your existing Firebase messaging system shown in the memories?
+For now no relations
+Will you need to bridge between the two messaging systems, or are they serving different purposes?
+No bridging, we are exploring a different messages system completely not related to firebase at the moment
+
+Now that we know this, let’s rewrite our implementation plans we can share with other to understand what we are planning on build, provide as much details needed to explain what we are planning on doing
+Include things that are out of scope
