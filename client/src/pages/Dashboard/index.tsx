@@ -2,14 +2,15 @@ import {
   Accordion, 
   AccordionDetails, 
   AccordionSummary, 
+  Alert,
+  Box,
   Chip,
+  CircularProgress,
   Grid, 
   Typography,
-  CircularProgress,
-  Alert
 } from '@mui/material';
 import { ExpandMore, TrendingUp } from '@mui/icons-material';
-import { useFirebaseServices } from '../hooks/useFirebaseServices';
+import { useFirebaseServices } from '../../hooks/useFirebaseServices';
 
 // Status color mapping
 const statusColors = {
@@ -48,13 +49,13 @@ const Dashboard = () => {
     }}>
       <Grid container spacing={2} sx={{
         width: '100%',
-        maxWidth: 1200,
+        maxWidth: { xs: '100%', lg: 1200 },
         margin: '0 auto',
         justifyContent: 'center'
       }}>
         <Grid item xs={12} sx={{ textAlign: 'center' }}>
           <Typography variant="h4" sx={{ 
-            mb: 4,
+            mb: 2,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -65,6 +66,7 @@ const Dashboard = () => {
           </Typography>
         </Grid>
 
+        {/* Bot Cards */}
         {services.map((service) => (
           <Grid item xs={12} md={8} key={service.ticker}>
             <Accordion sx={{
@@ -93,19 +95,29 @@ const Dashboard = () => {
               <AccordionDetails>
                 <Grid container spacing={2}>
                   {service.bots && Object.entries(service.bots).map(([botId, bot]) => (
-                    <Grid item xs={12} key={botId}>
-                      <Typography variant="body1">
-                        Bot {botId}: {bot.count} trades
-                        <Chip 
-                          label={bot.status}
-                          color={statusColors[bot.status]}
-                          size="small"
-                          sx={{ ml: 1 }}
-                        />
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Last updated: {new Date(bot.last_updated).toLocaleString()}
-                      </Typography>
+                    <Grid item xs={12} key={botId} sx={{
+                      display: 'flex',
+                      flexDirection: { xs: 'column', sm: 'row' },
+                      justifyContent: 'space-between',
+                      alignItems: { xs: 'flex-start', sm: 'center' },
+                      borderBottom: '1px solid #eee',
+                      pb: 2,
+                      mb: 2
+                    }}>
+                      <Box>
+                        <Typography variant="body1">
+                          Bot {botId}: {bot.count} trades
+                          <Chip 
+                            label={bot.status}
+                            color={statusColors[bot.status]}
+                            size="small"
+                            sx={{ ml: 1 }}
+                          />
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Last updated: {new Date(bot.last_updated).toLocaleString()}
+                        </Typography>
+                      </Box>
                     </Grid>
                   ))}
                   {(!service.bots || Object.keys(service.bots).length === 0) && (

@@ -11,7 +11,7 @@ def main():
 
     ticker = sys.argv[1].upper()
     service_id = str(uuid.uuid4())
-    bot_id = "1"  # For now, we'll use a single bot with ID 1
+    bot_id = service_id
 
     try:
         # Initialize Firebase

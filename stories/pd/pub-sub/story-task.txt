@@ -1,0 +1,170 @@
+What is the user story ?
+- As a user I should be able to communicate with the bots that are running in my docker containers
+
+Why must we complete this user story?
+We need a way to be able to communicate with the trading bots to make adjustment like money management, exit trades etc
+
+What is the user flow?
+- User opens the client site on their phone
+- Sees that a bot needs to be stopped right away
+- The user fills out a stop request for 2 bots for 2 different stocks, the stocks are (AAPL, META)
+- When creating a message the user has the option to send the message to all of the bots or only a selected few, the user wants the rest of the bots to run so they select a few
+- The message is sent to a firebase function
+- The function saves the message in the database called - messages
+- There is firebase function listener that listens for new messages that are saved, the function takes the messages and forwards it to a pubsub where all running bots are subscribed to
+- The pubsub messages gets picked up by a bot that is running a GOOGL stock, the bot checks if the message is for it, no it is not, checks if the message is for "ALL" no it is not so it sends an ignore message to the firebase function.
+- The message gets picked up by AAPL, checks if the message is for it's ticker, yes it is, check for the type of message and it sees that it is to stop trading, so it stops trading right away
+- Once it is done, it calls a backend function to acknowlege the message
+- This acknowlegement is saved in the pub-message array of acknowlegement with the id of the containers that acted on the message
+- The META bot docker does the same
+- The acknowlegement is used for debugging
+- So the user goes to the page logs on their phone and sees all of the messages they have sent before
+- Opens the recent message they sent and is able to see that both AAPL and META bots have acknowleged that they have completed the task
+- In the message the user can also see that GOOGL is in the list of ignored or error - this is used for debugging so that the user can know that if there are any issues with the trading bots ignoring their message or if there is any error. This will help the user act if the bot is not able to complete the trade for them
+
+
+Implementation plans:
+For our simple poc we will want to be able to send a message where our counter bot will start at whatever number we set in our config
+  - For example if our bot currently has a count of 200, when we send a message in our config we will have a startCountAt: 3, and if the message is for our bot they will start at a count of 3 and acknowlege the message
+
+
+client - this is the frontend application the user has access to on their phone and will allow the user to see what is running
+client\src\types - This is where we create types to tell our application the interface types for our messages
+we have created message.type.ts
+our interface will have the following
+
+interface IConfigMessage {
+id: string - this will be the id of the message
+acknowlegement: string[] - this will old all of the id of the bots who have acknowleged/acted on the message
+acknowlegementCount: number - the number of bots who acknowleged the message
+description: string - This allows the user to provide details on what the config is for
+config: object - this will be the configuration the user wants the bot to act on, for this simple poc we will leave it to be an object but we will update it as we define our configurations in the future,
+target: object { - this will be what we will use to determine what kind of target or who the messages are for
+    type: "ALL" | "SELECTED" - we have two options for now
+    selected: string[] - if it is a selected target, the needs to be a min of one target, but for a "ALL" this should be an empty
+}
+}
+
+interface IConfigMessageSimple { - this interface is used to get all of the messages and the simple count of the bots that acknowleged it, since there will be so many messages we do not want to get all of the data on one load
+    id: string
+    description: string
+    acknowlegementCount: number
+}
+
+
+- client\src\hooks
+- We will create a new useMessage.hook.ts  - this will be the hook we will use to save messages to the firebase database, We will create the following functions in out hook
+saveMessage:
+- This function will simple call our messageServiceController.saveMessage(message: IConfigMessage) : IConfigMessage
+
+getAllMessages:
+- this function will call our messageServiceController.getAllMessages(): IConfigMessageSimple[] - this function will be called on useEffect when the application loads 
+
+getMessageDetailsById:
+deleteMessageById
+- This function will call our messageServiceController.getMessageDetailsById(id: string): IConfigMessage
+
+- There will be no updating of messages since this will be sending messages on pubsub
+
+- client\src\pages
+client\src\pages\Messages\index.tsx - this will be the page the creates new messages and where the user will be able to view messages sent
+- First we will import our useMessage and remove the useFirebaseLogs
+- We will create a button where the user can click to create a new message, this will be a dialog that will show on top of the screen for the user to fill
+
+- client\src\pages\Messages\components\createMessageDialog.component.ts
+    - This will be a new component we create the will allow us to create a new message to forward to our bots, it will return IConfigMessage that we will foward to our hook function to saveMessage
+
+
+- client\src\pages\Messages\components\viewAllMessages.component.ts
+    - For the view of the messages we will create viewAllMessages, which will be a table of messages
+
+client\src\pages\Messages\components\messageCard.component.ts
+     - This will be the messageCard used in the view All Messages, when the user clicks on the messageCard, it will expand to call our getMessageDetailsById to get the message details for the user to view additional details needed
+
+client\src\pages\Dashboard\index.tsx
+    - We will remove any use of creating messages here or sending messages here,
+    - This page is simply used to see updates of our bots state
+
+
+client\src\routes
+  - I would like to create a routes.path.ts file, this will hold all of the different paths and pages we have, this way we only have to update this file of the new router paths and any page that naviages to a different page will have the new routes instead of manually going through each file to see where we need to update, this will be a constant strings
+     We will need to update
+        - client\src\routes\index.tsx and the Navigation function
+
+- client\src\service\controllers
+     - create a new file - client\src\service\controllers\message.service.controller.ts - this will hold all of our functions related to messages
+     We will create the following functions:
+
+saveMessage - this will call our message.service.firebase.ts messageServiceFirebase.saveMessage(message: IConfigMessage): IConfigMessage
+getAllMessages - this will call our messageServiceFirebase.getAllMessages() - IConfigMessageSimple[]
+getMessageDetailsById - this will call our messageServiceFirebase.getMessageDetailsById(): IConfigMessage
+
+- client\src\service\firebase
+   - create a new file client\src\service\firebase\message.service.firebase.ts
+We will create the following functions:
+
+saveMessage - this will call our firebase function endpoint to save message in the firebase database
+getAllMessages - will call our firebase function to get all the messages
+getMessageDetailsById - will get us the messageDetails by id
+
+Firebase Function - This is where we will create the endpoints and the firebase listeners
+firebase\functions\src 
+- Create firebase\functions\src\message\message.database.ts 
+    - We will create a new folder and inside we will create a file to update the database, this is what our message.service.firebase.ts from our client will call to save the messages to the database, and we will return IConfigMessage as a result, along with the rest of the functions: getAllMessages and getMessageDetailsById
+    - We will also create a function endpoint to acknowlegeMessage(botId: string, messageId: string): boolean - this will be the endpoint that the bots will call after they act on the message sent - which our firebase function will increase the count and update the bot id details
+
+- Create firebase\functions\src\message\message.listener.ts 
+   - This will be a listener for the database
+   - Whenever a new message is created we will get the message and put it on a pubsub for the bots to listen to  
+
+firebase\functions\src\index.ts - this is where we will have all of the 
+- We will need to import all of the firebase files we created and export them here
+
+
+=====Bots container=====
+Docker bots - These files run in the docker container and the bots have access to these service
+- message_firebase_client.py - this will be a new class we create where a bot will be able to listen to topics of "Messages"
+   
+- service.py - This is the start of the service of the bot
+- counter_bot.py - This is the test counter_bot that will get the pubsub message and acknowlege it
+
+For now we simple want to log the messages to make sure it is working as expected before we act on the messages and acknowleging it
+
+
+Client-Side Implementation Questions:
+- For the IConfigMessage interface, the config field is left as a generic object for now. For your POC, what specific properties will be included in this object? Will it just contain startCountAt for the counter bot?
+for now we will just have startCountAt will be fone
+
+- In the useMessage.hook.ts, will you need any real-time subscription to message acknowledgments, or will refreshing the details view be sufficient?
+- Yah let's have a real-time subscription to the database 
+
+- For the message creation dialog, what validation rules should be applied? (e.g., requiring at least one target when type is "SELECTED")
+- Yes requiring at least one target to be selected when "SELECTED" is picked but empty list when "ALL" is selected
+
+- For the routes.path.ts implementation, will you be adding any new routes beyond what currently exists?
+- No new routes
+
+Firebase Function Questions:
+When acknowledging a message, will there be any status tracking beyond just the bot ID (such as success/failure flags)?
+- For now the ID will be fine
+
+For messages that bots ignore, will you be storing that information separately, or just tracking acknowledgments?
+- No storing for ignoring
+
+Will there be any rate limiting or message prioritization in the pub/sub system?
+- No let;'s keep it as simple as possible
+
+Docker Bot Implementation Questions:
+- How will you handle a scenario where a bot receives a message but crashes before acknowledging it?
+ - No acknowledging, the owner will be able to see that the bot was not able to get the message
+- Will there be any authentication mechanism between the bots and Firebase functions?
+- This has already been set where the bots have access to the firebase using adminsdk.json
+- How do you plan to test this system end-to-end? Will you create a dedicated testing environment?
+ - We will test in production where we save a message and see how the bots respond
+General Architecture Questions:
+- I noticed you previously implemented Firebase endpoint services. How will the new message service integrate with the existing Firebase infrastructure?
+- Yes to keep thing separately we will have another firebase functions just for messages
+- Do you have a timeline for when you plan to move beyond the POC implementation to a more robust configuration system?
+- For now this is out of scope, no timeline worry needed 
+- Is there any specific monitoring or logging you want to implement to track the health of this pub/sub system?
+- No for now let's keep things simple

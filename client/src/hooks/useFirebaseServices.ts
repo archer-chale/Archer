@@ -1,53 +1,58 @@
 import { useState, useEffect } from 'react';
-import { ref, onValue } from 'firebase/database';
-import { db } from '../firebaseConfig';
+import { Service } from '../service/firebase/firebase-endpoint.service';
+import { firebaseServiceController } from '../service/controllers/firebase.service.controller';
+import { useServicesStore } from '../store/services.store';
 
-export interface Bot {
-  id: string;
-  count: number;
-  status: 'active' | 'paused';
-  last_updated: string;
-}
-
-export interface Service {
-  ticker: string;
-  status: 'running' | 'paused' | 'stopped';
-  bots: Record<string, Bot>;
-}
-
+/**
+ * Custom hook for accessing Firebase services
+ * Provides real-time updates of service status and bots
+ * Updates the services store with the latest data
+ */
 export const useFirebaseServices = () => {
+  // Get direct access to local state for backwards compatibility
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Get access to store actions
+  const setStoreServices = useServicesStore(state => state.setServices);
+  const setStoreLoading = useServicesStore(state => state.setLoading);
+  const setStoreError = useServicesStore(state => state.setError);
 
   useEffect(() => {
-    const servicesRef = ref(db, 'services');
+    // Update store loading state
+    setStoreLoading(true);
+    
+    try {
+      // Subscribe to services using the controller
+      const unsubscribe = firebaseServiceController.getServices((servicesData) => {
+        // Update local state
+        setServices(servicesData);
+        setLoading(false);
+        
+        // Update store state
+        setStoreServices(servicesData);
+        setStoreLoading(false);
+      });
 
-    const unsubscribe = onValue(servicesRef, (snapshot) => {
-      try {
-        const data = snapshot.val();
-        if (data) {
-          const servicesArray = Object.entries(data).map(([ticker, serviceData]) => ({
-            ticker,
-            ...serviceData as Omit<Service, 'ticker'>
-          }));
-          setServices(servicesArray);
-        } else {
-          setServices([]);
-        }
-        setLoading(false);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error occurred');
-        setLoading(false);
-      }
-    }, (error) => {
-      setError(error.message);
+      // Cleanup subscription
+      return () => {
+        unsubscribe();
+      };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      
+      // Update local state
+      setError(errorMessage);
       setLoading(false);
-    });
-
-    // Cleanup subscription
-    return () => unsubscribe();
-  }, []);
+      
+      // Update store state
+      setStoreError(errorMessage);
+      setStoreLoading(false);
+      
+      return () => {}; // Empty cleanup if setup failed
+    }
+  }, [setStoreServices, setStoreLoading, setStoreError]);
 
   return { services, loading, error };
 };
