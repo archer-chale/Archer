@@ -4,6 +4,7 @@ File: docker-compose.yml
 ⦁	Task: Add Redis service configuration
 ⦁	Details: Define a Redis container with appropriate port mapping (6379), volume configuration for persistence if needed
 ⦁	Rationale: We need a running Redis instance as the message broker for our pub/sub system
+
 2. Library Structure Setup
 File: /main/shared_library/redis/__init__.py
 ⦁	Task: Create package initialization file
@@ -13,6 +14,9 @@ File: /main/shared_library/redis/__init__.py
 ⦁	Task: Define channel name constants and other configuration
 ⦁	Details: Create CHANNELS class with constants like PRICE_DATA, TRADE_COMMANDS, BOT_STATUS
 ⦁	Rationale: Provides standardized channel names to prevent typos and inconsistencies
+- Lastly provide instructions on how to test that this part of the checklist is completed
+
+
 3. Core Library Components
 File: /main/shared_library/redis/connection.py
 ⦁	Task: Implement connection management
@@ -26,11 +30,15 @@ File: /main/shared_library/redis/connection.py
 ⦁	Task: Implement subscriber functionality
 ⦁	Details: Create RedisSubscriber class with subscription mechanisms, callback registration, and message filtering
 ⦁	Rationale: Enables services to listen for messages on specific channels and process them
+- Lastly provide instructions on how to test that this part of the checklist is completed
+
 4. Message Handling
 File: /main/shared_library/redis/message.py
 ⦁	Task: Define message structure and validation
 ⦁	Details: Create Message class with standard fields and validation methods
 ⦁	Rationale: Ensures consistent message format and validates message content before publishing
+- Lastly provide instructions on how to test that this part of the checklist is completed
+
 5. Testing Components
 File: /tests/test_publisher.py
 ⦁	Task: Create unit tests for publisher
@@ -44,6 +52,8 @@ File: /tests/test_publisher.py
 ⦁	Task: Create integration tests
 ⦁	Details: Test end-to-end pub/sub functionality with actual Redis instance
 ⦁	Rationale: Confirms the entire system works together as expected
+- Lastly provide instructions on how to test that this part of the checklist is completed
+
 6. Example Services
 File: /examples/example_publisher.py
 ⦁	Task: Create example publisher service
@@ -53,6 +63,8 @@ File: /examples/example_publisher.py
 ⦁	Task: Create example subscriber service
 ⦁	Details: Simple script demonstrating how to subscribe and process messages
 ⦁	Rationale: Shows how to implement callback handling and subscription
+- Lastly provide instructions on how to test that this part of the checklist is completed
+
 7. Documentation
 File: /main/shared_library/redis/README.md
 ⦁	Task: Create library documentation

@@ -1,6 +1,31 @@
 version: '3.8'
 
 services:
+  # Redis Service
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+# Add this to your docker-compose.yml under services
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
   # Trading Bot Services
   aapl-bot:
     build: 
@@ -61,3 +86,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  redis-data:
