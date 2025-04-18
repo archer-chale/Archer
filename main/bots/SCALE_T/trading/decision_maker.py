@@ -17,6 +17,8 @@ from main.bots.SCALE_T.common.logging_config import get_logger
 from main.bots.SCALE_T.common.notify import send_notification
 from main.bots.SCALE_T.common.constants import TradingType
 
+from .constants import MessageType, OrderState
+
 class DecisionMaker:
     def __init__(self, csv_service, alpaca_interface):
         self.logger = get_logger("decision_maker")
@@ -37,6 +39,7 @@ class DecisionMaker:
                 self.pending_order_index = pending_order_info["index"]
                 self.logger.info(f"Pending order initialized: {self.pending_order}. Handling order update.")
                 self.handle_order_update(self.pending_order)
+                self.order_state = OrderState.BUYING if self.pending_order.side == OrderSide.BUY else OrderState.SELLING
             else:
                 self.logger.error("Pending order found but order_id is None. Exciting")
                 sys.exit()
@@ -44,6 +47,7 @@ class DecisionMaker:
             self.logger.debug("No pending order found.")
             self.pending_order = None
             self.pending_order_index = None
+            self.order_state = OrderState.NONE
 
         # Get initial price and put it on the queue
         self.logger.info("Getting initial price and putting it on the queue.")
@@ -88,6 +92,7 @@ class DecisionMaker:
             )
             self.pending_order = None
             self.pending_order_index = None
+            self.order_state = OrderState.NONE
             self.logger.info("Order filled and handled successfully. Checking share count.")
             self._check_share_count()
 
@@ -105,6 +110,7 @@ class DecisionMaker:
             # Reset pending order variables
             self.pending_order = None
             self.pending_order_index = None
+            self.order_state = OrderState.NONE
 
             self.logger.info("Checking share count after order reset.")
             self._check_share_count()
@@ -138,6 +144,7 @@ class DecisionMaker:
                 send_notification("Bot needs help", "SomeDetails")
                 #input("Approve buy order cancellation? (press Enter to continue)")
                 cancel_success = self.alpaca_interface.cancel_order(self.pending_order.id)
+                self.order_state = OrderState.CANCELLING
                 if not cancel_success:
                     self.logger.warning(f"Failed to cancel buy order ID: {self.pending_order.id}, manually triggering order update")
                     # Manually trigger order update in the queue to catch any missed updates
@@ -150,6 +157,7 @@ class DecisionMaker:
                 send_notification("Bot needs help", "SomeDetails")
                 #input("Approve sell order cancellation? (press Enter to continue)")
                 cancel_success = self.alpaca_interface.cancel_order(self.pending_order.id)
+                self.order_state = OrderState.CANCELLING
                 if not cancel_success:
                     self.logger.warning(f"Failed to cancel sell order ID: {self.pending_order.id}, manually triggering order update")
                     # Manually trigger order update in the queue to catch any missed updates
@@ -181,10 +189,10 @@ class DecisionMaker:
                 latest_order = self.alpaca_interface.get_order_by_id(self.pending_order.id)
                 
                 # Create a proper TradeUpdate object that matches what comes from the Alpaca stream
-                trade_update = TradeUpdate(order=latest_order, event='order_update', timestamp=dt.utcnow())
+                trade_update = TradeUpdate(order=latest_order, event=MessageType.ORDER_UPDATE.value, timestamp=dt.utcnow())
                 
                 # Queue the update just like the websocket would
-                self.action_queue.put({'type': 'order_update', 'data': trade_update, 'source': 'manual'})
+                self.action_queue.put({'type': MessageType.ORDER_UPDATE, 'data': trade_update, 'source': 'manual'})
                 
                 self.logger.info(f"Manually triggered order update for order ID: {latest_order.id}")
                 self.logger.info(f"Order status: {latest_order.status}")
@@ -205,6 +213,7 @@ class DecisionMaker:
                 send_notification("Bot needs help", "SomeDetails")
                 #input("Approve cancellation of sell order to place buy order? (press Enter to continue)")
                 cancel_success = self.alpaca_interface.cancel_order(self.pending_order.id)
+                self.order_state = OrderState.CANCELLING
                 if not cancel_success:
                     self.logger.warning(f"Failed to cancel sell order ID: {self.pending_order.id} for buy placement, manually triggering order update")
                     # Manually trigger order update in the queue to catch any missed updates
@@ -243,6 +252,7 @@ class DecisionMaker:
                 send_notification("Bot needs help", "SomeDetails")
             try:
                 order = self.alpaca_interface.place_order(OrderSide.BUY, limit_price, total_qty_to_buy)
+                self.order_state = OrderState.BUYING
                 if order is None:
                     self.logger.error("Failed to place buy order")
                     return False
@@ -266,6 +276,7 @@ class DecisionMaker:
                 send_notification("Bot needs help", "SomeDetails")
                 #input("Approve cancellation of buy order to place sell order? (press Enter to continue)")
                 cancel_success = self.alpaca_interface.cancel_order(self.pending_order.id)
+                self.order_state = OrderState.CANCELLING
                 if not cancel_success:
                     self.logger.warning(f"Failed to cancel buy order ID: {self.pending_order.id} for sell placement, manually triggering order update")
                     # Manually trigger order update in the queue to catch any missed updates
@@ -304,6 +315,7 @@ class DecisionMaker:
             self.logger.info("Placing sell order.")
             try:
                 order = self.alpaca_interface.place_order(OrderSide.SELL, limit_price, total_qty_to_sell)
+                self.order_state = OrderState.SELLING
                 if order is None:
                     self.logger.error("Failed to place sell order")
                     return False
@@ -327,6 +339,9 @@ class DecisionMaker:
         return price
 
     def handle_price_update(self, price):
+        if self.order_state == OrderState.CANCELLING:
+            return
+
         current_price = self._filter_price_data(price)
         if current_price is None:
             return
@@ -348,13 +363,16 @@ class DecisionMaker:
         while True:
             message = self.action_queue.get()
             # self.logger.info(f"Consuming action: {message['type']}")
-            if message['type'] == 'order_update':
+            if message['type'] == MessageType.ORDER_UPDATE:
                 # Trying to filter out order updates that shouldn't be coming in
                 # self.pending_order = message['data'].order
                 self.logger.info(f"Handling order update from {message.get('source','unknown')}")
                 self.handle_order_update(message['data'].order)
-            elif message['type'] == 'price_update':
+            elif message['type'] == 'price_update':                    
                 self.handle_price_update(message['data'])
+            else :
+                self.logger.error(f"Recieved an unknown message with type: {message['type']}")
+                self.logger.error(f"message: {message}")
             self.action_queue.task_done()
 
     def launch_action_producer_threads(self):
@@ -372,7 +390,7 @@ class DecisionMaker:
 
         async def update_handler(data):
             self.logger.debug("Received order update")
-            message = {'type': 'order_update', 'data': data, 'source': 'alpaca'}
+            message = {'type': MessageType.ORDER_UPDATE, 'data': data, 'source': 'alpaca'}
             self.action_queue.put(message)
             self.logger.info(f"Order update received for order ID: {data.order.id}")
             self.logger.info(f"Order status: {data.order.status}")
