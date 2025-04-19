@@ -16,7 +16,7 @@ def main():
     print(f"Will publish price updates to channel: {CHANNELS.PRICE_DATA}")
     
     # Create a publisher using our library
-    publisher = RedisPublisher(host="redis")
+    publisher = RedisPublisher()
     
     # Send 10 test price messages
     for i in range(10):
