@@ -19,7 +19,6 @@ class RedisConnection:
     
     Provides centralized connection handling with configurable host/port/db parameters.
     """
-    
     def __init__(self, host='localhost', port=6379, db=0, **kwargs):
         """
         Initialize a new Redis connection.

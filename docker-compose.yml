@@ -24,6 +24,8 @@ services:
       dockerfile: Dockerfile
     container_name: aapl-bot
     command: AAPL
+    environment:
+      - REDIS_HOST=redis
     volumes:
       - ./configs/adminsdk.json:/app/adminsdk.json:ro
     restart: unless-stopped
@@ -39,6 +41,8 @@ services:
       dockerfile: Dockerfile
     container_name: meta-bot
     command: META
+    environment:
+      - REDIS_HOST=redis
     volumes:
       - ./configs/adminsdk.json:/app/adminsdk.json:ro
     restart: unless-stopped
@@ -54,6 +58,8 @@ services:
       dockerfile: Dockerfile
     container_name: amzn-bot
     command: AMZN
+    environment:
+      - REDIS_HOST=redis
     volumes:
       - ./configs/adminsdk.json:/app/adminsdk.json:ro
     restart: unless-stopped
@@ -69,6 +75,8 @@ services:
       dockerfile: Dockerfile
     container_name: MSFT-bot
     command: MSFT
+    environment:
+      - REDIS_HOST=redis
     volumes:
       - ./configs/adminsdk.json:/app/adminsdk.json:ro
     restart: unless-stopped

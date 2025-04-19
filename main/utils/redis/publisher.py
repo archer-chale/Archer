@@ -5,11 +5,10 @@ This module provides functionality for publishing JSON messages to Redis channel
 It uses the RedisConnection class for connection management.
 """
 
-import json
 import logging
-from datetime import datetime
 from .connection import RedisConnection
 from .message import format_for_channel, MessageValidationError
+import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -21,8 +20,9 @@ class RedisPublisher:
     
     Provides a clean API for publishing JSON messages to Redis channels.
     """
-    
-    def __init__(self, host='localhost', port=6379, db=0, **kwargs):
+    REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
+
+    def __init__(self, host=REDIS_HOST, port=6379, db=0, **kwargs):
         """
         Initialize a new Redis publisher.
         

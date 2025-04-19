@@ -4,7 +4,7 @@ import logging
 import time
 
 from firebase_client import register_service
-from counter_bot import run_counter_bot
+from counter_bot import run_price_subscriber
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -26,8 +26,8 @@ def main():
         logging.error("Service registration failed")
         return
 
-    # Start the counter bot
-    run_counter_bot(service_id)
+    # Start the price subscriber
+    run_price_subscriber(service_id)
 
 
 if __name__ == '__main__':

@@ -6,10 +6,10 @@ It uses the RedisConnection class for connection management and supports callbac
 and message filtering.
 """
 
-import json
 import logging
 from .connection import RedisConnection
 from .message import parse_message, MessageValidationError
+import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -21,8 +21,9 @@ class RedisSubscriber:
     
     Provides subscription mechanisms, callback registration, and message filtering.
     """
+    REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
     
-    def __init__(self, host='localhost', port=6379, db=0, **kwargs):
+    def __init__(self, host=REDIS_HOST, port=6379, db=0, **kwargs):
         """
         Initialize a new Redis subscriber.
         
