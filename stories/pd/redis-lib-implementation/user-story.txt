@@ -55,3 +55,22 @@ No bridging, we are exploring a different messages system completely not related
 
 Now that we know this, let’s rewrite our implementation plans we can share with other to understand what we are planning on build, provide as much details needed to explain what we are planning on doing
 Include things that are out of scope
+
+
++_+_+_+_+_
+Exported Components in __init__.py:
+Which components should be exported for easy importing? (e.g., RedisConnection, RedisPublisher, RedisSubscriber, CHANNELS, etc.)
+- RedisConnection, RedisPublisher, RedisSubscriber, CHANNELS 
+Should the Message class (once implemented) also be exported from the package root?
+ - Yes 
+Constants in constants.py:
+Is PRICE_DATA the only channel you want for now, or should I include others like TRADE_COMMANDS, BOT_STATUS as in your earlier plan?
+ - For right now let's only implement for PRICE_DATA
+Should there be a configuration class or just channel names for now?
+ - Channel name for now
+Directory Structure:
+Should I create the shared_library/redis directory structure if it doesn't exist, or do you already have it set up?
+  - We already have it main\utils\redis - we are putting it under utils folder instead for now
+Testing Instructions:
+Would you like instructions for manual verification (importing and using the constants/components in a Python shell), or should I provide a minimal test script as well?
+ - counter_bot.py, since we are just having constants values created, let's just log the values from this file 

@@ -10,9 +10,10 @@ File: /main/shared_library/redis/__init__.py
 ⦁	Task: Create package initialization file
 ⦁	Details: Export main components for easy importing
 ⦁	Rationale: Simplifies imports for consumers of our library
-⦁	File: /main/shared_library/redis/constants.py
+
+File: /main/shared_library/redis/constants.py
 ⦁	Task: Define channel name constants and other configuration
-⦁	Details: Create CHANNELS class with constants like PRICE_DATA, TRADE_COMMANDS, BOT_STATUS
+⦁	Details: Create CHANNELS class with constants like PRICE_DATA
 ⦁	Rationale: Provides standardized channel names to prevent typos and inconsistencies
 - Lastly provide instructions on how to test that this part of the checklist is completed
 
@@ -22,17 +23,18 @@ File: /main/shared_library/redis/connection.py
 ⦁	Task: Implement connection management
 ⦁	Details: Create RedisConnection class with connection handling, configurable host/port/db
 ⦁	Rationale: Centralizes connection management logic and configuration
-⦁	File: /main/shared_library/redis/publisher.py
+⦁	File: /main/utils/redis/publisher.py
 ⦁	Task: Implement publisher functionality
 ⦁	Details: Create RedisPublisher class with methods to publish JSON messages to channels
 ⦁	Rationale: Provides a clean API for publishing messages to Redis channels
-⦁	File: /main/shared_library/redis/subscriber.py
+
+File: /main/utils/redis/subscriber.py
 ⦁	Task: Implement subscriber functionality
 ⦁	Details: Create RedisSubscriber class with subscription mechanisms, callback registration, and message filtering
 ⦁	Rationale: Enables services to listen for messages on specific channels and process them
 - Lastly provide instructions on how to test that this part of the checklist is completed
 
-4. Message Handling
+4. Message Handling - DONE
 File: /main/shared_library/redis/message.py
 ⦁	Task: Define message structure and validation
 ⦁	Details: Create Message class with standard fields and validation methods
@@ -44,11 +46,11 @@ File: /tests/test_publisher.py
 ⦁	Task: Create unit tests for publisher
 ⦁	Details: Test message publishing, error handling, and validation
 ⦁	Rationale: Verifies publisher functionality works as expected
-⦁	File: /tests/test_subscriber.py
+File: /tests/test_subscriber.py
 ⦁	Task: Create unit tests for subscriber
 ⦁	Details: Test subscription, callback execution, and message filtering
 ⦁	Rationale: Ensures subscriber properly receives and processes messages
-⦁	File: /tests/integration_test.py
+File: /tests/integration_test.py
 ⦁	Task: Create integration tests
 ⦁	Details: Test end-to-end pub/sub functionality with actual Redis instance
 ⦁	Rationale: Confirms the entire system works together as expected
