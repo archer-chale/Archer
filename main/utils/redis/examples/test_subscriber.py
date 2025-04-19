@@ -1,55 +1,57 @@
 #!/usr/bin/env python
-# Test Subscriber for Redis Pub/Sub
-import redis
+# Test Subscriber for Redis Pub/Sub using our Redis library
+import sys
+import os
 import json
 import time
 
-def message_handler(message):
-    """Process incoming messages"""
-    # Decode the message data
-    data = message['data'].decode('utf-8')
-    channel = message['channel'].decode('utf-8')
+# Add the parent directory to the path so we can import our Redis library
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+
+# Import our Redis library components
+from utils.redis import RedisSubscriber, CHANNELS
+
+def price_handler(message):
+    """Handle price update messages"""
+    # With our library, the message is already parsed from JSON
+    # and has a consistent structure
+    data = message["data"]
+    timestamp = message["timestamp"]
+    sender = message["sender"]
     
-    # Parse JSON
-    try:
-        json_data = json.loads(data)
-        print(f"\nReceived message on channel '{channel}':")
-        print(f"Type: {json_data.get('message_type')}")
-        print(f"Data: {json_data.get('data')}")
-        print(f"Timestamp: {json_data.get('timestamp')}")
-        print(f"Sender: {json_data.get('sender')}")
-        print("-" * 50)
-    except json.JSONDecodeError:
-        print(f"Received non-JSON message on channel '{channel}': {data}")
+    print("\n" + "=" * 50)
+    print(f"Received price update from {sender} at {timestamp}")
+    print(f"Symbol: {data['symbol']}")
+    print(f"Price: ${data['price']:.2f}")
+    if "volume" in data:
+        print(f"Volume: {data['volume']}")
+    print("=" * 50)
 
 def main():
-    # Connect to Redis server
-    r = redis.Redis(host='localhost', port=6379, db=0)
+    print("Starting Redis Subscriber Test")
+    print(f"Listening for price updates on channel: {CHANNELS.PRICE_DATA}")
     
-    # Create a pubsub object
-    pubsub = r.pubsub()
+    # Create a subscriber using our library
+    subscriber = RedisSubscriber()
     
-    # Channel to subscribe to
-    channel = 'PRICE_DATA'
+    # Subscribe to the price data channel with our handler
+    subscriber.subscribe(CHANNELS.PRICE_DATA, price_handler)
     
-    # Subscribe to the channel
-    pubsub.subscribe(**{channel: message_handler})
+    # Start listening for messages
+    subscriber.start_listening()
     
-    print(f"Subscribed to channel: {channel}")
-    print("Waiting for messages... (press Ctrl+C to exit)")
+    print("Subscriber is running. Press Ctrl+C to exit.")
     
-    # Start the message processing loop
+    # Keep the main thread alive
     try:
-        pubsub.run_in_thread(sleep_time=0.001)
-        # Keep the main thread alive
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        print("Shutting down...")
+        print("\nShutting down subscriber...")
     finally:
         # Clean up
-        pubsub.unsubscribe()
-        pubsub.close()
+        subscriber.close()
+        print("Subscriber has been closed.")
 
 if __name__ == "__main__":
     main()
