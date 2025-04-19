@@ -56,7 +56,7 @@ File: /tests/integration_test.py
 ⦁	Rationale: Confirms the entire system works together as expected
 - Lastly provide instructions on how to test that this part of the checklist is completed
 
-6. Example Services
+6. Example Services - DONE
 File: /examples/example_publisher.py
 ⦁	Task: Create example publisher service
 ⦁	Details: Simple script demonstrating how to publish messages
@@ -67,12 +67,12 @@ File: /examples/example_publisher.py
 ⦁	Rationale: Shows how to implement callback handling and subscription
 - Lastly provide instructions on how to test that this part of the checklist is completed
 
-7. Documentation
-File: /main/shared_library/redis/README.md
+7. Documentation - DONE
+File: /main/utils/redis/README.md
 ⦁	Task: Create library documentation
 ⦁	Details: Include installation, usage examples, API reference
 ⦁	Rationale: Helps other developers understand how to use the library
-⦁	File: /main/shared_library/redis/requirements.txt
+File: /main/utils/redis/requirements.txt
 ⦁	Task: Define library dependencies
 ⦁	Details: List redis-py and any other required packages with versions
 ⦁	Rationale: Makes it easy to install all necessary dependencies

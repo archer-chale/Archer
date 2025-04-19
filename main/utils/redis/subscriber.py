@@ -8,9 +8,8 @@ and message filtering.
 
 import json
 import logging
-import threading
 from .connection import RedisConnection
-from .message import parse_message, extract_data, MessageValidationError
+from .message import parse_message, MessageValidationError
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
