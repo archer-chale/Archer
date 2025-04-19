@@ -7,11 +7,11 @@ In a classless implementation, this module focuses on the initial setup and orch
 
 import argparse
 
-from main.bots.SCALE_T.csv_utils.csv_service import CSVService
-from main.bots.SCALE_T.brokerages.alpaca_interface import AlpacaInterface
-from main.bots.SCALE_T.trading.decision_maker import DecisionMaker
-from main.bots.SCALE_T.common.logging_config import get_logger
-from main.bots.SCALE_T.common.constants import TradingType
+from .csv_utils.csv_service import CSVService
+from .brokerages.alpaca_interface import AlpacaInterface
+from .trading.decision_maker import DecisionMaker
+from .common.logging_config import get_logger
+from .common.constants import TradingType
 ###################logging.basicConfig(level=logging.INFO)
 #.env log levels
 

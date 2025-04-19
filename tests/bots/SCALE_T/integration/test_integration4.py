@@ -10,6 +10,7 @@ from main.bots.SCALE_T.brokerages.alpaca_interface import AlpacaInterface
 from main.bots.SCALE_T.trading.decision_maker import DecisionMaker
 from main.bots.SCALE_T.common.logging_config import get_logger
 from main.bots.SCALE_T.common.constants import TradingType
+from main.bots.SCALE_T.trading.constants import MessageType
 
 from alpaca.trading.enums import OrderStatus, OrderSide
 
@@ -127,7 +128,7 @@ class TestScaleTFractionalOrders(unittest.TestCase):
         mock_order_update.event = 'fill'
 
         # Put order update message on queue
-        self.decision_maker.action_queue.put({'type': 'order_update', 'data': mock_order_update})
+        self.decision_maker.action_queue.put({'type': MessageType.ORDER_UPDATE, 'data': mock_order_update})
 
         # Allow some time for processing
         time.sleep(0.5)
@@ -191,7 +192,7 @@ class TestScaleTFractionalOrders(unittest.TestCase):
         mock_order_update.event = 'fill'
 
         # Put order update message on queue
-        self.decision_maker.action_queue.put({'type': 'order_update', 'data': mock_order_update})
+        self.decision_maker.action_queue.put({'type': MessageType.ORDER_UPDATE, 'data': mock_order_update})
 
         # Allow some time for processing
         time.sleep(0.5)

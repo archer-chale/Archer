@@ -35,30 +35,49 @@ TRADING_TYPE_TO_KEY_NAME = {
         "SECRET_KEY_NAME" : "ALPACA_API_SECRET_KEY"
     }
 }
-# API Key names
-# PAPER_ALPACA_KEY_ID = "PAPER_ALPACA_API_KEY_ID"
-# PAPER_ALPACA_SECRET_KEY = "PAPER_ALPACA_API_SECRET_KEY"
-# LIVE_ALPACA_KEY_ID = "ALPACA_API_KEY_ID"
-# LIVE_ALPACA_SECRET_KEY = "ALPACA_API_SECRET_KEY"
 
-PROJECT_NAME = "Archer"
+def find_base_path(start_path: str, base_path_name: str) -> str:
+    """
+    Traverse up the directory tree to find the base path.
+    
+    Args:
+        start_path (str): The starting directory path
+        base_path_name (str): The name of the base path to look for
+        
+    Returns:
+        str: The found base path or None if not found
+    """
+    current_path = start_path
+    while not os.path.basename(current_path) == base_path_name:
+        parent_path = os.path.dirname(current_path)
+        if parent_path == current_path:  # If we reached the root directory
+            return None
+        current_path = parent_path
+    return current_path
+
+PROJECT_BASE_PATH = "Archer"
 BOT_NAME = "SCALE_T"
+DOCKER_BASE_PATH = "app"
 # Determine the base path of your project
+env =  "docker"
 current_path = os.path.dirname(os.path.abspath(__file__))
-
-# Traverse up to find "BasePath"
-while not current_path.endswith(PROJECT_NAME):
-    parent_path = os.path.dirname(current_path)
-    if parent_path == current_path:  # If we reached the root directory
-        raise Exception(f"{PROJECT_NAME} not found in directory structure.")
-    current_path = parent_path
+ABS_BASE_PATH = find_base_path(current_path, DOCKER_BASE_PATH)
+if ABS_BASE_PATH is None:
+    # Possibly running from non-docker environment try project root
+    current_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ABS_BASE_PATH = find_base_path(current_path, PROJECT_BASE_PATH)
+    env = "local"
 
 # Base directory paths - Current path is now the base directory of Archer
-BASE_DIR = os.path.join(current_path, "data/SCALE_T")
-LOGS_DIR = os.path.join(BASE_DIR, "logs")
-CONFIG_DIR = os.path.join(current_path, "configs")
-TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
-TICKER_DATA_BASE = os.path.join(BASE_DIR, "ticker_data")
+if env == "docker":
+    DATA_PATH = os.path.join(ABS_BASE_PATH, "data")
+else:
+    DATA_PATH = os.path.join(ABS_BASE_PATH, "data", "SCALE_T")
+LOGS_DIR = os.path.join(DATA_PATH, "logs")
+CONFIG_DIR = os.path.join(ABS_BASE_PATH, "configs")
+TEMPLATES_DIR = os.path.join(DATA_PATH, "templates")
+TICKER_DATA_BASE = os.path.join(DATA_PATH ,"ticker_data")
+
 
 # ENV File Location
 ENV_FILE = os.path.join(CONFIG_DIR, ".env")

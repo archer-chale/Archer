@@ -3,7 +3,7 @@ from ..common.constants import get_ticker_filepath
 from typing import List, Dict, Union
 import csv, os, json, time
 
-from main.bots.SCALE_T.common.constants import (
+from ..common.constants import (
     METADATA_FILE,
     TradingType
 )
