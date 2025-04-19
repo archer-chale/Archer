@@ -11,6 +11,7 @@ from main.bots.SCALE_T.csv_utils.csv_service import CSVService
 from main.bots.SCALE_T.brokerages.alpaca_interface import AlpacaInterface
 from main.bots.SCALE_T.trading.decision_maker import DecisionMaker
 from main.bots.SCALE_T.common.constants import TradingType
+from main.bots.SCALE_T.trading.constants import MessageType
 
 
 from alpaca.trading.enums import OrderStatus, OrderSide
@@ -128,14 +129,14 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
 
         # Simulate order update coming on queue
         mock_order_update = Mock()
-        mock_order_update.event = "order_update"
+        mock_order_update.event = MessageType.ORDER_UPDATE
         mock_order_update.order = mock_placed_order
         mock_placed_order.status = OrderStatus.CANCELED
         mock_placed_order.filled_qty = 0
         mock_placed_order.filled_avg_price = None
         # print(mock_placed_order.id)
         # mock_placed_order.id = mock_placed_order.id
-        order_update = {'type': 'order_update', 'data': mock_order_update}
+        order_update = {'type': MessageType.ORDER_UPDATE, 'data': mock_order_update}
         self.decision_maker.action_queue.put(order_update)
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
@@ -175,10 +176,10 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.filled_avg_price = 97.03
         mock_placed_order.side = 'buy'
         mock_order_update = Mock()
-        mock_order_update.event = "order_update"
+        mock_order_update.event = MessageType.ORDER_UPDATE
         mock_order_update.order = mock_placed_order
         # Trigger a partial fill
-        self.decision_maker.action_queue.put({"type": "order_update", "data": mock_order_update})
+        self.decision_maker.action_queue.put({"type": MessageType.ORDER_UPDATE, "data": mock_order_update})
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
         # Check that the CSV data was updated (shares remain 0)
@@ -212,9 +213,9 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.filled_avg_price = 97.03
         mock_placed_order.side = 'buy'
         mock_order_update = Mock()
-        mock_order_update.event = "order_update"
+        mock_order_update.event = MessageType.ORDER_UPDATE
         mock_order_update.order = mock_placed_order
-        order_update = {'type': 'order_update', 'data': mock_order_update}
+        order_update = {'type': MessageType.ORDER_UPDATE, 'data': mock_order_update}
         self.decision_maker.action_queue.put(order_update)
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
@@ -263,9 +264,9 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.filled_avg_price = 97.52
         mock_placed_order.side = 'buy'
         mock_order_update = Mock()
-        mock_order_update.event = "order_update"
+        mock_order_update.event = MessageType.ORDER_UPDATE
         mock_order_update.order = mock_placed_order
-        order_update = {'type': 'order_update', 'data': mock_order_update}
+        order_update = {'type': MessageType.ORDER_UPDATE, 'data': mock_order_update}
         self.decision_maker.action_queue.put(order_update)
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
@@ -314,9 +315,9 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.filled_qty = 0
         mock_placed_order.filled_avg_price = None
         mock_order_update = Mock()
-        mock_order_update.event = "order_update"
+        mock_order_update.event = MessageType.ORDER_UPDATE
         mock_order_update.order = mock_placed_order
-        order_update = {'type': 'order_update', 'data': mock_order_update}
+        order_update = {'type': MessageType.ORDER_UPDATE, 'data': mock_order_update}
         self.decision_maker.action_queue.put(order_update)
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
@@ -357,9 +358,9 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.filled_qty = 4
         mock_placed_order.filled_avg_price = 100.51
         mock_order_update = Mock()
-        mock_order_update.event = "order_update"
+        mock_order_update.event = MessageType.ORDER_UPDATE
         mock_order_update.order = mock_placed_order
-        order_update = {'type': 'order_update', 'data': mock_order_update}
+        order_update = {'type': MessageType.ORDER_UPDATE, 'data': mock_order_update}
         self.decision_maker.action_queue.put(order_update)
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
@@ -390,9 +391,9 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.filled_avg_price = 100.51
         mock_placed_order.symbol = "TEST"
         mock_order_update = Mock()
-        mock_order_update.event = "order_update"
+        mock_order_update.event = MessageType.ORDER_UPDATE
         mock_order_update.order = mock_placed_order
-        order_update = {'type': 'order_update', 'data': mock_order_update}
+        order_update = {'type': MessageType.ORDER_UPDATE, 'data': mock_order_update}
         self.decision_maker.action_queue.put(order_update)
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
@@ -434,9 +435,9 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.filled_qty = 50
         mock_placed_order.filled_avg_price = 50.01
         mock_order_update = Mock()
-        mock_order_update.event = "order_update"
+        mock_order_update.event = MessageType.ORDER_UPDATE
         mock_order_update.order = mock_placed_order
-        order_update = {'type': 'order_update', 'data': mock_order_update}
+        order_update = {'type': MessageType.ORDER_UPDATE, 'data': mock_order_update}
         self.decision_maker.action_queue.put(order_update)
         # Allow some time for the consumer thread to process
         time.sleep(0.5)
@@ -462,7 +463,7 @@ class TestScaleTIntegrationMocked(unittest.TestCase):
         mock_placed_order.filled_qty = 50
         mock_order_update.event = "fill"
         mock_order_update.order = mock_placed_order
-        order_update = {"type":"order_update", "data": mock_order_update}
+        order_update = {"type":MessageType.ORDER_UPDATE, "data": mock_order_update}
         self.alpaca_interface.get_shares_count.return_value = 0
         self.decision_maker.action_queue.put(order_update)
 

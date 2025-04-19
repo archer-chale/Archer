@@ -13,9 +13,9 @@ from alpaca.data.live.stock import StockDataStream
 from alpaca.data.enums import DataFeed
 from alpaca.data.models.trades import Trade
 
-from main.bots.SCALE_T.common.logging_config import get_logger
-from main.bots.SCALE_T.common.notify import send_notification
-from main.bots.SCALE_T.common.constants import TradingType
+from ..common.logging_config import get_logger
+from ..common.notify import send_notification
+from ..common.constants import TradingType
 
 from .constants import MessageType, OrderState
 

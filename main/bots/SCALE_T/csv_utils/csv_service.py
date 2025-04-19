@@ -9,8 +9,8 @@ from typing import Dict, Optional, Union
 from .csv_core import CSVCore
 
 
-from main.bots.SCALE_T.common.logging_config import get_logger
-from main.bots.SCALE_T.common.constants import TradingType
+from ..common.logging_config import get_logger
+from ..common.constants import TradingType
 
 class CSVService(CSVCore):
     """
