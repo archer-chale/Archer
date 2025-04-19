@@ -1,79 +1,68 @@
 import logging
 import time
 import json
-from firebase_client import update_bot_count
-from message_firebase_client import MessageFirebaseClient
 
-def run_counter_bot(service_id, ticker, bot_id):
+# Import our Redis library components
+from main.utils.redis import RedisSubscriber, CHANNELS
+
+def run_price_subscriber(service_id):
     """
-    Run a counter bot service that:
-    1. Increments a counter every second
-    2. Updates the counter value in Firebase every 10 seconds
-    3. Listens for configuration messages that can reset the counter
+    Run a price subscriber service that listens for price updates via Redis.
     
     Args:
         service_id: Unique ID for this service instance
-        ticker: Stock ticker symbol this bot is monitoring
-        bot_id: Unique ID for this bot
     """
-    counter = 0
-    last_update = 0
-    logging.info(f"Starting counter bot for service {service_id}...")
+    logging.info(f"Starting price subscriber service {service_id}...")
     
-    # Define the callback function for processing messages
-    def process_message(message_id, message_data):
+    # Define a handler for Redis price updates
+    def price_update_handler(message):
         """
-        Process configuration messages received from Firestore.
-        This callback is called whenever a new message document is added to Firestore.
+        Handle price updates received from Redis.
         
         Args:
-            message_id: ID of the message document
-            message_data: Dictionary containing the message data
+            message: Dictionary containing the message data
         """
-        nonlocal counter
+        data = message.get('data', {})
+        timestamp = message.get('timestamp', '')
+        sender = message.get('sender', 'unknown')
         
-        # Log the received message
-        logging.info(f"Received message: {message_id}")
-        logging.info(f"Message data: {json.dumps(message_data, default=str)}")
+        # Extract price data
+        symbol = data.get('symbol', 'unknown')
+        price = data.get('price', 0.0)
+        volume = data.get('volume', 0)
         
-        # Extract configuration from the message
-        config = message_data.get('config', {})
-        
-        # For the counter bot POC, we only handle the startCountAt configuration
-        if 'startCountAt' in config:
-            try:
-                new_count = int(config['startCountAt'])
-                logging.info(f"Updating counter from {counter} to {new_count}")
-                counter = new_count
-                
-                # Force an immediate update to Firebase
-                update_bot_count(ticker, bot_id, counter)
-            except (ValueError, TypeError) as e:
-                logging.error(f"Invalid startCountAt value: {config['startCountAt']}. Error: {str(e)}")
+        logging.info(f"PRICE UPDATE - Symbol: {symbol}, Price: ${price:.2f}, Volume: {volume}")
+        logging.info(f"               From: {sender} at {timestamp}")
+        logging.info(f"               Service: {service_id}")
     
-    # Initialize the message client with our bot_id
-    message_client = MessageFirebaseClient(bot_id)
+    # Initialize our Redis subscriber for price updates
+    logging.info(f"Initializing Redis subscriber for service {service_id}...")
     
-    # Subscribe to messages with our callback function
-    message_client.subscribe(process_message)
-    logging.info(f"Subscribed to Firestore messages with bot ID: {bot_id}")
+    redis_subscriber = RedisSubscriber()
     
     try:
-        while True:
-            counter += 1
-            current_time = time.time()
-            
-            # Update Firebase every 10 seconds
-            if current_time - last_update >= 10:
-                update_bot_count(ticker, bot_id, counter)
-                last_update = current_time
-                logging.info(f"Service {service_id} - Bot {bot_id} counter value: {counter}")
-            
-            time.sleep(1)  # simulate work by waiting 1 second
-            
-    except KeyboardInterrupt:
-        logging.info(f"Counter bot for service {service_id} interrupted and stopping.")
-        # Update one final time before stopping
-        update_bot_count(ticker, bot_id, counter)
-        # Stop the message client
-        message_client.unsubscribe()
+        # Subscribe to the price data channel
+        redis_subscriber.subscribe(CHANNELS.PRICE_DATA, price_update_handler)
+        logging.info(f"Subscribed to Redis price updates on channel: {CHANNELS.PRICE_DATA}")
+        
+        # Start listening for messages
+        redis_subscriber.start_listening()
+        logging.info("Listening for price updates...")
+        
+        # Keep the service running
+        try:
+            while True:
+                # Just keep the service alive
+                time.sleep(1)
+                
+        except KeyboardInterrupt:
+            logging.info(f"Price subscriber service {service_id} interrupted and stopping.")
+    
+    except Exception as e:
+        logging.error(f"Error in price subscriber: {e}")
+    
+    finally:
+        # Ensure we close the subscriber even if an error occurs
+        if 'redis_subscriber' in locals():
+            redis_subscriber.close()
+            logging.info("Closed Redis subscriber")

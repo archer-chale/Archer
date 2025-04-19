@@ -1,0 +1,78 @@
+Redis Implementation Checklist
+1. Docker Configuration
+File: docker-compose.yml
+⦁	Task: Add Redis service configuration
+⦁	Details: Define a Redis container with appropriate port mapping (6379), volume configuration for persistence if needed
+⦁	Rationale: We need a running Redis instance as the message broker for our pub/sub system
+
+2. Library Structure Setup
+File: /main/shared_library/redis/__init__.py
+⦁	Task: Create package initialization file
+⦁	Details: Export main components for easy importing
+⦁	Rationale: Simplifies imports for consumers of our library
+
+File: /main/shared_library/redis/constants.py
+⦁	Task: Define channel name constants and other configuration
+⦁	Details: Create CHANNELS class with constants like PRICE_DATA
+⦁	Rationale: Provides standardized channel names to prevent typos and inconsistencies
+- Lastly provide instructions on how to test that this part of the checklist is completed
+
+
+3. Core Library Components
+File: /main/shared_library/redis/connection.py
+⦁	Task: Implement connection management
+⦁	Details: Create RedisConnection class with connection handling, configurable host/port/db
+⦁	Rationale: Centralizes connection management logic and configuration
+⦁	File: /main/utils/redis/publisher.py
+⦁	Task: Implement publisher functionality
+⦁	Details: Create RedisPublisher class with methods to publish JSON messages to channels
+⦁	Rationale: Provides a clean API for publishing messages to Redis channels
+
+File: /main/utils/redis/subscriber.py
+⦁	Task: Implement subscriber functionality
+⦁	Details: Create RedisSubscriber class with subscription mechanisms, callback registration, and message filtering
+⦁	Rationale: Enables services to listen for messages on specific channels and process them
+- Lastly provide instructions on how to test that this part of the checklist is completed
+
+4. Message Handling - DONE
+File: /main/shared_library/redis/message.py
+⦁	Task: Define message structure and validation
+⦁	Details: Create Message class with standard fields and validation methods
+⦁	Rationale: Ensures consistent message format and validates message content before publishing
+- Lastly provide instructions on how to test that this part of the checklist is completed
+
+5. Testing Components
+File: /tests/test_publisher.py
+⦁	Task: Create unit tests for publisher
+⦁	Details: Test message publishing, error handling, and validation
+⦁	Rationale: Verifies publisher functionality works as expected
+File: /tests/test_subscriber.py
+⦁	Task: Create unit tests for subscriber
+⦁	Details: Test subscription, callback execution, and message filtering
+⦁	Rationale: Ensures subscriber properly receives and processes messages
+File: /tests/integration_test.py
+⦁	Task: Create integration tests
+⦁	Details: Test end-to-end pub/sub functionality with actual Redis instance
+⦁	Rationale: Confirms the entire system works together as expected
+- Lastly provide instructions on how to test that this part of the checklist is completed
+
+6. Example Services - DONE
+File: /examples/example_publisher.py
+⦁	Task: Create example publisher service
+⦁	Details: Simple script demonstrating how to publish messages
+⦁	Rationale: Provides usage example for other developers
+⦁	File: /examples/example_subscriber.py
+⦁	Task: Create example subscriber service
+⦁	Details: Simple script demonstrating how to subscribe and process messages
+⦁	Rationale: Shows how to implement callback handling and subscription
+- Lastly provide instructions on how to test that this part of the checklist is completed
+
+7. Documentation - DONE
+File: /main/utils/redis/README.md
+⦁	Task: Create library documentation
+⦁	Details: Include installation, usage examples, API reference
+⦁	Rationale: Helps other developers understand how to use the library
+File: /main/utils/redis/requirements.txt
+⦁	Task: Define library dependencies
+⦁	Details: List redis-py and any other required packages with versions
+⦁	Rationale: Makes it easy to install all necessary dependencies

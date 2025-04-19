@@ -1,0 +1,11 @@
+# Redis Pub/Sub Library Dependencies
+
+# Redis Python client
+redis>=4.5.1,<5.0.0
+
+# Core Python packages
+typing>=3.7.4
+json>=2.0.9  # Usually part of Python standard library
+logging>=0.5.1  # Usually part of Python standard library
+threading  # Part of Python standard library
+datetime  # Part of Python standard library
