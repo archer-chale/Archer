@@ -16,15 +16,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-# Add this to your docker-compose.yml under services
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: redis-commander
-    environment:
-      - REDIS_HOSTS=local:redis:6379
-    ports:
-      - "8081:8081"
-    restart: unless-stopped
 
   # Trading Bot Services
   aapl-bot:
