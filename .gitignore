@@ -69,3 +69,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# docker
+docker-compose.generated.yml

@@ -2,11 +2,18 @@ FROM python:3.10-slim
 WORKDIR /app
 
 # Copy requirements first
-COPY requirements.txt ./
+COPY main/alpaca_broker/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the entire main directory
-COPY main/alpaca_broker ./aplaca_broker
+# Copy environment configuration - Removed ENV_FILE directive
+COPY configs/.env ./configs/
 
-# Set the entrypoint to run the broker service
-ENTRYPOINT ["tail", "-f", "/dev/null"]
+# Copy the bot module
+COPY main/bots/SCALE_T/common ./main/bots/SCALE_T/common
+COPY main/alpaca_broker ./main/alpaca_broker
+
+# Run from project root to make relative imports work
+WORKDIR /app
+# hold the container open
+# CMD ["tail", "-f", "/dev/null"]
+CMD ["python", "-m", "main.alpaca_broker.main"]

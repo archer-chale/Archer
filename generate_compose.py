@@ -3,9 +3,27 @@ import yaml
 with open("configs/tickers.txt") as f:
     tickers = [line.strip() for line in f]
 
+services = {
+    "alpaca_broker": {
+        "build": {
+            "context": ".",
+            "dockerfile": "main/alpaca_broker/Dockerfile",
+        },
+        "container_name": "alpaca_broker",
+        # "env_file": ['configs/.env'], # Restore env_file
+        "restart": "no",
+        "env_file": "configs/.env",
+        "logging": {
+            "driver": "json-file",
+            "options": {
+                "max-size": "10m",
+                "max-file": "3"
+            }
+        },
+    }
+}
 
-
-services = {}
+# Add bot services
 for ticker in tickers:
     services[f"scale_t_bot_{ticker.lower()}"] = {
         "build": {
