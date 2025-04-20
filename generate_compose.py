@@ -12,7 +12,7 @@ for ticker in tickers:
             "context": ".",
             "dockerfile": f"main/bots/SCALE_T/Dockerfile",
         },
-        "command": "tail -f /dev/null",
+        "command": f"{ticker.upper()} paper",
         "container_name": f"scale_t_bot_{ticker.lower()}",
         "volumes": [
             f"./data/SCALE_T/ticker_data/paper/{ticker.upper()}.csv:/app/data/ticker_data/paper/{ticker.upper()}.csv",
