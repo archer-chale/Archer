@@ -68,6 +68,7 @@ class AlpacaInterface:
         SECRET_KEY_NAME = TRADING_TYPE_TO_KEY_NAME[self.trading_type]["SECRET_KEY_NAME"]
         self.api_key = os.environ.get(KEY_ID_NAME)
         self.secret_key = os.environ.get(SECRET_KEY_NAME)
+        # TODO : Check if keys are None and raise an error or try catch of APIError
         self.trading_client = TradingClient(self.api_key, self.secret_key, paper=(self.trading_type == TradingType.PAPER))
         self.data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
 
