@@ -11,9 +11,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 # Import our Redis library components
 from utils.redis import RedisPublisher, CHANNELS
 
+TEST_TICKER = "AAPL" # Define the ticker for this test
+
 def main():
     print("Starting Redis Publisher Test")
-    print(f"Will publish price updates to channel: {CHANNELS.PRICE_DATA}")
+    ticker_channel = CHANNELS.get_ticker_channel(TEST_TICKER)
+    print(f"Will publish to channel: {ticker_channel}")
     
     # Create a publisher using our library
     publisher = RedisPublisher()
@@ -24,12 +27,14 @@ def main():
         price_data = {
             'symbol': 'AAPL',
             'price': 150.00 + i,
-            'volume': 1000 + (i * 100)
+            'volume': 1000 + (i * 100),
+            'type': 'price', # Add type field for combined schema
+            'timestamp': str(time.time()) # Use current time as timestamp
         }
         
         # Publish message using our library
         # Note how we don't need to handle JSON conversion or message structure
-        publisher.publish(CHANNELS.PRICE_DATA, price_data, sender='test_publisher')
+        publisher.publish(ticker_channel, price_data, sender='test_publisher')
         
         # Print the message we sent
         print(f"Published price update {i+1}/10: Symbol={price_data['symbol']}, "

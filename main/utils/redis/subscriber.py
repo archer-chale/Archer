@@ -10,6 +10,7 @@ import logging
 from .connection import RedisConnection
 from .message import parse_message, MessageValidationError
 import os
+import json
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

@@ -11,6 +11,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 # Import our Redis library components
 from utils.redis import RedisSubscriber, CHANNELS
 
+TEST_TICKER = "AAPL" # Define the ticker for this test
+
 def price_handler(message):
     """Handle price update messages"""
     # With our library, the message is already parsed from JSON
@@ -29,13 +31,14 @@ def price_handler(message):
 
 def main():
     print("Starting Redis Subscriber Test")
-    print(f"Listening for price updates on channel: {CHANNELS.PRICE_DATA}")
+    ticker_channel = CHANNELS.get_ticker_channel(TEST_TICKER)
+    print(f"Listening for price updates on channel: {ticker_channel}")
     
     # Create a subscriber using our library
     subscriber = RedisSubscriber()
     
     # Subscribe to the price data channel with our handler
-    subscriber.subscribe(CHANNELS.PRICE_DATA, price_handler)
+    subscriber.subscribe(ticker_channel, price_handler)
     
     # Start listening for messages
     subscriber.start_listening()
