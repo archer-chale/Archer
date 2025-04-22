@@ -1,0 +1,40 @@
+Story 3.7: Keep Container Alive - Implementation Strategy
+=================================================
+
+Objective
+---------
+Ensure the main broker process keeps running indefinitely after starting the producer threads, allowing the container to stay active.
+
+Implementation Strategy
+---------------------
+1. Main Loop Implementation
+   - Add a `while True` loop in main.py after starting the broker
+   - Use `time.sleep()` inside the loop to prevent high CPU usage
+   - Add proper `KeyboardInterrupt` handling to stop the broker cleanly
+
+2. Shutdown Handling
+   - Ensure `broker.stop()` is called on `KeyboardInterrupt`
+   - Verify threads are properly joined
+   - Add logging for shutdown sequence
+
+3. Testing Strategy
+   - Manually test container startup and shutdown
+   - Verify logs show proper startup and shutdown messages
+   - Check container stays running until manually stopped
+
+Integration Points
+----------------
+- Uses existing broker start/stop methods
+- Follows standard Python practices for long-running services
+
+Success Criteria
+--------------
+- Container stays running after broker starts
+- Service can be stopped cleanly with Ctrl+C
+- Logs show proper lifecycle messages
+
+Notes
+-----
+- This keeps the main thread alive while producer threads run
+- Essential for containerized services
+- Ensure proper resource cleanup on shutdown

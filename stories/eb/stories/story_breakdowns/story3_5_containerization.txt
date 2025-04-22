@@ -1,0 +1,54 @@
+Story 3.5: Broker Containerization - Implementation Strategy
+=================================================
+
+Objective
+---------
+Set up container infrastructure for the broker service to run as a standalone component.
+
+Implementation Strategy
+---------------------
+1. Service Dependencies
+   - Add alpaca-py to requirements.txt
+   - Add python-dotenv for environment handling
+   - Ensure access to SCALE_T common module
+
+2. Dockerfile Updates
+   - Fix path typo (alpaca_broker)
+   - Update COPY commands to include common module
+   - Set proper CMD to run broker service
+   - Ensure proper Python environment
+
+3. Generate Compose Integration
+   - Add alpaca_broker service to compose file
+   - Configure environment variables for API keys
+   - Set up logging configuration
+   - Configure container restart policy
+   - Add necessary volume mounts
+
+4. Testing Strategy
+   - Verify container builds successfully
+   - Check service starts properly
+   - Validate environment variable passing
+   - Test logging output
+   - Verify common module accessibility
+
+Integration Points
+----------------
+- Uses SCALE_T common module for logging
+- Shares environment configuration patterns
+- Follows project containerization standards
+
+Success Criteria
+--------------
+- Container builds without errors
+- Service runs in container
+- Logs are properly captured
+- API keys are properly configured
+- Common module functions correctly
+
+Notes
+-----
+- Keep configuration consistent with other services
+- Enable proper logging visibility
+- Support both paper and live environments
+- Prepare for future Redis integration
