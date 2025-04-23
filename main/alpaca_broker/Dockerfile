@@ -5,11 +5,12 @@ WORKDIR /app
 COPY main/alpaca_broker/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy environment configuration - Removed ENV_FILE directive
+# Copy environment configuration
 COPY configs/.env ./configs/
 
-# Copy the bot module
+# Copy necessary modules
 COPY main/bots/SCALE_T/common ./main/bots/SCALE_T/common
+COPY main/utils/redis ./main/utils/redis
 COPY main/alpaca_broker ./main/alpaca_broker
 
 # Run from project root to make relative imports work

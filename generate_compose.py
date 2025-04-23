@@ -4,6 +4,21 @@ with open("configs/tickers.txt") as f:
     tickers = [line.strip() for line in f]
 
 services = {
+    "redis": {
+        "image": "redis:latest", # Using latest as per docker-compose.yml
+        "container_name": "redis",
+        "ports": ["6379:6379"],
+        "volumes": ["redis-data:/data"], # Added volume from docker-compose.yml
+        "command": "redis-server --appendonly yes", # Added command from docker-compose.yml
+        "restart": "unless-stopped",
+        "logging": {
+            "driver": "json-file",
+            "options": {
+                "max-size": "10m",
+                "max-file": "3"
+            }
+        }
+    },
     "alpaca_broker": {
         "build": {
             "context": ".",
@@ -46,7 +61,10 @@ for ticker in tickers:
     }
 
 compose = {
-    "services": services
+    "services": services,
+    "volumes": { # Added volumes section from docker-compose.yml
+        "redis-data": None
+    }
 }
 
 with open("docker-compose.generated.yml", "w") as f:
