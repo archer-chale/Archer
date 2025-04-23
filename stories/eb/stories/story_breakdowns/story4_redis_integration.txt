@@ -1,0 +1,114 @@
+Story 4: Redis Integration - Implementation Strategy (Revised v2)
+===========================================================
+
+Objective
+---------
+Integrate Redis pub/sub into the broker using the custom `utils.redis` library. The broker will publish combined price/order updates to dynamic, ticker-specific channels and subscribe to a fixed registration channel.
+
+Implementation Strategy
+---------------------
+1. Container Integration (Completed)
+   1.1. Added Redis service definition to `docker-compose.generated.yml`. (Done)
+   1.2. Configured network settings (default Docker network). (Done)
+   1.3. Updated broker service definition with Redis environment variables. (Done)
+   1.4. Ensured `main/utils/redis` directory is copied in `Dockerfile`. (Done)
+   1.5. Added `depends_on: [redis]` to the broker service definition. (Done)
+
+2. Redis Wrapper Integration (Completed)
+   2.1. Imported `RedisPublisher`, `RedisSubscriber`, `CHANNELS`. (Done)
+   2.2. Read Redis config from environment variables. (Done)
+   2.3. Initialized `RedisPublisher`. (Done)
+   2.4. Initialized `RedisSubscriber`. (Done)
+   2.5. Added connection verification. (Done)
+
+3. Message Publishing Logic (Partially Done - Needs Refactoring in 3.8)
+   3.1. `handle_price_update` publishes. (Done, but needs channel/schema update)
+   3.2. `handle_order_update` publishes. (Done, but needs channel/schema update)
+   3.3. Ensure message data conforms to schemas. (Done, needs review for combined channel)
+
+3.5. Broker Registration Subscription Logic (Partially Done - Needs Refactoring in 3.8)
+   3.5.1. Add `BROKER_REGISTRATION` channel. (Pending in 3.8.1)
+   3.5.2. Implement `handle_registration_message`. (Done, needs update in 3.8.2)
+   3.5.3. Subscribe in `start` method. (Done, needs update in 3.8.2)
+   3.5.4. Start subscriber thread. (Done)
+   3.5.5. Update `stop` method. (Done)
+
+3.8. Dynamic Ticker Channel Handling (Revised Step)
+   3.8.1. Update `main/utils/redis/constants.py`:
+        *   Add `BROKER_REGISTRATION` channel constant.
+        *   Define schema for `BROKER_REGISTRATION` messages (e.g., `{'action': 'subscribe'/'unsubscribe', 'ticker': 'AAPL'}`).
+        *   Remove `PRICE_DATA`, `ORDER_UPDATES` channels/schemas if they are no longer needed.
+        *   Add a helper function to generate dynamic ticker channel names (e.g., `get_ticker_channel(ticker)` -> `TICKER_UPDATES_{ticker}`).
+        *   Define a *combined* schema for the dynamic ticker channel messages, including fields for both price (`type='price'`, `price`, `volume`, `timestamp`) and order updates (`type='order'`, `order_data`, `timestamp`).
+   3.8.2. Update `main/alpaca_broker/broker.py`:
+        *   Modify `handle_price_update`: Format data with `type='price'` and publish to the dynamic ticker channel using the helper function (e.g., `get_ticker_channel(price_data['symbol'])`).
+        *   Modify `handle_order_update`: Format data with `type='order'` (containing the serialized order dict) and publish to the dynamic ticker channel using the helper function (e.g., `get_ticker_channel(trade_update.order.symbol)`).
+        *   Update `handle_registration_message` to extract ticker and call `subscribe_symbols`/`unsubscribe_symbols`.
+        *   Ensure `RedisSubscriber` in `start()` subscribes *only* to `BROKER_REGISTRATION`.
+   3.8.3. Update Tests:
+        *   Adjust tests for publishing to the single dynamic ticker channel with correct message types (`price`/`order`).
+        *   Add tests for `BROKER_REGISTRATION` schema and handler.
+        *   Verify `subscribe_symbols`/`unsubscribe_symbols` tests.
+   3.8.4. Update `main/utils/redis/examples/`:
+        *   Modify examples to publish/subscribe to the single dynamic ticker channel, handling both price and order message types within the same channel.
+        *   Add examples for `BROKER_REGISTRATION`.
+
+3.9. *CheckPoint* - Need to sync up with code so far manually.
+   - Check auxillary files
+      - Docker
+      - requirement.txt
+   - Review brokery.py workflow
+      - stop_update_publisher sequence of operations.
+         - need it to stop producer threads
+         - be able to start back up
+      - subscriber to broker is exempt from stop sequence
+         - maybe not shutdown( because its should be a temp state)
+      - start_update_publisher sequence
+         - ensure state in stop
+         - start producer threads with all the tickers
+         - start producer threads
+      - register ticker sequence
+         - stop sequence initiated
+         - update ticker list
+         - start sequence
+   - Check unit tests
+
+
+4. Error Handling (Next after 3.8) - Needs review
+   4.1. Add error handling for Redis connections.
+   4.2. Add error handling for publishing failures.
+   4.3. Add error handling for subscriber message processing.
+   4.4. Implement retry logic if necessary.
+   4.5. Add logging for Redis operations.
+
+5. Testing Structure (After Error Handling)
+   5.1. Add unit tests mocking Redis components.
+   5.2. Test message formatting/validation for the combined channel schema.
+   5.3. Add integration tests.
+   5.4. Test error handling scenarios.
+
+Integration Points
+----------------
+- Uses the custom `utils.redis.RedisPublisher` and `RedisSubscriber`.
+- Leverages existing handler functions and adds new ones.
+- Requires Redis service running (via Docker Compose).
+- Follows established logging patterns.
+
+Success Criteria
+--------------
+- Broker container starts and connects to Redis container successfully.
+- Broker initializes `RedisPublisher` and `RedisSubscriber` successfully.
+- Price/Order updates are correctly published to the *same* dynamic ticker channel with appropriate type indicators.
+- Broker correctly subscribes to and handles registration messages on the fixed channel.
+- Redis utils examples reflect the new single dynamic channel approach.
+- Errors are handled gracefully.
+- Tests verify all Redis integration aspects.
+
+Notes
+-----
+- One Redis channel per ticker for all updates (price/order).
+- Messages on ticker channels need a `type` field to differentiate.
+- Use the custom `utils.redis` library.
+- Adhere to defined message structures/schemas.
+- Ensure Redis connection details are configurable.
+- Manage publisher and subscriber lifecycles correctly.
