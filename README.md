@@ -14,25 +14,22 @@ The trading infrastructure consists of several components:
 4. **Supporting Utilities**: Shared libraries for Redis communication, logging, and notification
 
 ```
-┌─────────────────┐     ┌───────────────┐     ┌───────────────┐
-│                 │     │               │     │               │
-│  Alpaca Broker  │◄───►│     Redis     │◄───►│  SCALE_T Bot  │
-│                 │     │               │     │   (AAPL)      │
-└─────────────────┘     └───────────────┘     └───────────────┘
-        ▲                      ▲                     ▲
-        │                      │                     │
-        │                      ▼                     │
-        │               ┌───────────────┐            │
-        └───────────────┤  SCALE_T Bot  │◄───────────┘
-                        │   (MSFT)      │
-                        └───────────────┘
-                               ▲
-                               │
-                               ▼
-                        ┌───────────────┐
-                        │  SCALE_T Bot  │
-                        │   (TSLA)      │
-                        └───────────────┘
+┌─────────────────┐      ┌───────────────┐
+│                 │      │               │
+│  Alpaca Broker  │─────►│     Redis     │
+│    (Market      │      │  (Message     │
+│     Data)       │◄─────│   Broker)     │
+└─────────────────┘      └───────────────┘
+                                ▲
+                                │
+                                ▼
+            ┌──────────────────┬──────────────────┐
+            │                  │                  │
+      ┌───────────────┐  ┌───────────────┐  ┌───────────────┐
+      │               │  │               │  │               │
+      │  SCALE_T Bot  │  │  SCALE_T Bot  │  │  SCALE_T Bot  │
+      │   (AAPL)      │  │   (MSFT)      │  │   (TSLA)      │
+      └───────────────┘  └───────────────┘  └───────────────┘
 ```
 
 ## The Generate Compose Script
