@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+
+# Node.js / React
+client/node_modules
+client/build
+client/dist
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+
+# IDE
+.vscode
+.idea
+
+# Logs
+*.log
+
+# Don't ignore these files
+!adminsdk.json
+!requirements.txt
