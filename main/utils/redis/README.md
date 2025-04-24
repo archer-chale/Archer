@@ -16,7 +16,7 @@ A lightweight, channel-based Redis pub/sub library for Python applications. This
 2. Install required dependencies:
 
 ```bash
-pip install -r main/utils/redis/requirements.txt
+pip install redis>=4.5.1,<5.0.0
 ```
 
 ## Quick Start
@@ -29,13 +29,17 @@ from main.utils.redis import RedisPublisher, CHANNELS
 # Create a publisher
 publisher = RedisPublisher()
 
-# Publish a price update
+# Publish a price update to a ticker channel
+ticker = "AAPL"
+ticker_channel = CHANNELS.get_ticker_channel(ticker)
 price_data = {
-    'symbol': 'AAPL',
+    'type': 'price',
+    'timestamp': '2025-04-24T09:45:00.000Z',
     'price': 150.00,
-    'volume': 1000
+    'volume': 1000,
+    'symbol': ticker
 }
-publisher.publish(CHANNELS.PRICE_DATA, price_data, sender='my_service')
+publisher.publish(ticker_channel, price_data)
 
 # Close when done
 publisher.close()
@@ -48,15 +52,18 @@ from main.utils.redis import RedisSubscriber, CHANNELS
 import time
 
 # Define a message handler
-def price_handler(message):
+def ticker_handler(message):
     data = message['data']
-    print(f"Received price: ${data['price']:.2f} for {data['symbol']}")
+    if data['type'] == 'price':
+        print(f"Received price: ${data['price']:.2f} for {data['symbol']}")
     
 # Create a subscriber
 subscriber = RedisSubscriber()
 
-# Subscribe to price updates
-subscriber.subscribe(CHANNELS.PRICE_DATA, price_handler)
+# Subscribe to ticker updates
+ticker = "AAPL"
+ticker_channel = CHANNELS.get_ticker_channel(ticker)
+subscriber.subscribe(ticker_channel, ticker_handler)
 
 # Start listening for messages (in a background thread)
 subscriber.start_listening()
@@ -80,8 +87,15 @@ Defines standardized channel names for pub/sub communication:
 ```python
 from main.utils.redis import CHANNELS
 
-# Use predefined channels
-CHANNELS.PRICE_DATA  # "PRICE_DATA"
+# Fixed registration channel
+CHANNELS.BROKER_REGISTRATION  # "BROKER_REGISTRATION"
+
+# Dynamic ticker channels
+ticker_channel = CHANNELS.get_ticker_channel("AAPL")  # "TICKER_UPDATES_AAPL"
+
+# Get schema for a channel
+schema = CHANNELS.get_schema(CHANNELS.BROKER_REGISTRATION)
+ticker_schema = CHANNELS.get_schema(ticker_channel)
 ```
 
 #### MESSAGE_SCHEMAS
@@ -92,7 +106,11 @@ Defines message schemas for each channel:
 from main.utils.redis import MESSAGE_SCHEMAS
 
 # Access schemas for validation
-price_schema = MESSAGE_SCHEMAS.PRICE_DATA
+registration_schema = MESSAGE_SCHEMAS.BROKER_REGISTRATION
+ticker_updates_schema = MESSAGE_SCHEMAS.TICKER_UPDATES
+
+# Get schema dynamically
+schema = MESSAGE_SCHEMAS.get(CHANNELS.BROKER_REGISTRATION)
 ```
 
 ### Connection
@@ -126,12 +144,21 @@ from main.utils.redis import RedisPublisher, CHANNELS
 # Create a publisher
 publisher = RedisPublisher(host='localhost', port=6379, db=0)
 
-# Publish a message
-publisher.publish(CHANNELS.PRICE_DATA, {
+# Publish a ticker update message
+ticker_channel = CHANNELS.get_ticker_channel("MSFT")
+publisher.publish(ticker_channel, {
+    'type': 'price',
+    'timestamp': '2025-04-24T09:45:00.000Z',
     'symbol': 'MSFT',
     'price': 300.50,
     'volume': 2000
-}, sender='my_service')
+})
+
+# Publish a broker registration message
+publisher.publish(CHANNELS.BROKER_REGISTRATION, {
+    'action': 'subscribe',
+    'ticker': 'MSFT'
+})
 
 # Clean up
 publisher.close()
@@ -149,19 +176,30 @@ from main.utils.redis import RedisSubscriber, CHANNELS
 # Create a subscriber
 subscriber = RedisSubscriber(host='localhost', port=6379, db=0)
 
-# Define a handler
-def message_handler(message):
-    # Process the message
-    print(message)
+# Define handlers
+def ticker_handler(message):
+    # Process ticker updates (price or order)
+    data = message['data']
+    if data['type'] == 'price':
+        print(f"Price update for {data['symbol']}: {data['price']}")
+    elif data['type'] == 'order':
+        print(f"Order update for {data['symbol']}")
 
-# Subscribe to a channel
-subscriber.subscribe(CHANNELS.PRICE_DATA, message_handler)
+def registration_handler(message):
+    # Process broker registration messages
+    data = message['data']
+    print(f"Registration action: {data['action']} for {data['ticker']}")
+
+# Subscribe to channels
+ticker_channel = CHANNELS.get_ticker_channel("AAPL")
+subscriber.subscribe(ticker_channel, ticker_handler)
+subscriber.subscribe(CHANNELS.BROKER_REGISTRATION, registration_handler)
 
 # Start listening for messages
 thread = subscriber.start_listening()
 
 # Unsubscribe from a specific channel
-subscriber.unsubscribe(CHANNELS.PRICE_DATA)
+subscriber.unsubscribe(ticker_channel)
 
 # Unsubscribe from all channels
 subscriber.unsubscribe()
@@ -185,18 +223,32 @@ from main.utils.redis import (
 )
 
 # Validate a message against a channel's schema
+ticker_channel = CHANNELS.get_ticker_channel("AAPL")
 try:
-    validate_message(CHANNELS.PRICE_DATA, {'symbol': 'AAPL', 'price': 150.00})
+    validate_message(ticker_channel, {
+        'type': 'price',
+        'timestamp': '2025-04-24T09:45:00.000Z',
+        'symbol': 'AAPL',
+        'price': 150.00
+    })
 except MessageValidationError as e:
     print(f"Invalid message: {e}")
 
 # Create a standardized message
-message = create_message({'symbol': 'AAPL', 'price': 150.00}, sender='my_service')
+message = create_message({
+    'type': 'price',
+    'timestamp': '2025-04-24T09:45:00.000Z',
+    'symbol': 'AAPL',
+    'price': 150.00
+})
 
 # Format a message for a specific channel (validates and formats)
-message_json = format_for_channel(CHANNELS.PRICE_DATA, 
-                                 {'symbol': 'AAPL', 'price': 150.00},
-                                 sender='my_service')
+message_json = format_for_channel(ticker_channel, {
+    'type': 'price',
+    'timestamp': '2025-04-24T09:45:00.000Z',
+    'symbol': 'AAPL',
+    'price': 150.00
+})
 
 # Parse a message from JSON
 parsed = parse_message(message_json)
@@ -212,36 +264,68 @@ Messages are formatted as JSON with a standard structure:
 ```json
 {
   "data": {
-    // Channel-specific data fields
+    "type": "price",
+    "timestamp": "2025-04-24T09:45:00.000Z",
     "symbol": "AAPL",
-    "price": 150.00
+    "price": 150.00,
+    "volume": 1000
   },
-  "timestamp": "2025-04-18T12:34:56.789012",
-  "sender": "my_service"
+  "timestamp": "2025-04-24T09:45:01.123456",
+  "sender": "broker_service"
 }
 ```
 
 ### Channel-Specific Schemas
+
+There are two main schema types:
+
+1. **Broker Registration Schema**: Used for the BROKER_REGISTRATION channel
+   - Required fields: `action`, `ticker`
+   - Allowed actions: `subscribe`, `unsubscribe`
+
+2. **Ticker Updates Schema**: Used for all ticker update channels (TICKER_UPDATES_*)
+   - Required fields: `type`, `timestamp`
+   - Optional fields: `price`, `volume`, `symbol`, `order_data`
+   - Types: `price`, `order`
 
 ## Error Handling
 
 The library raises `MessageValidationError` for validation issues:
 
 ```python
-from main.utils.redis import MessageValidationError
+from main.utils.redis import MessageValidationError, CHANNELS
 
 try:
-    # Some operation that might fail validation
-    publisher.publish(CHANNELS.PRICE_DATA, {'symbol': 'AAPL'})  # Missing 'price'
+    # Missing required field 'type'
+    ticker_channel = CHANNELS.get_ticker_channel("AAPL")
+    publisher.publish(ticker_channel, {
+        'symbol': 'AAPL',
+        'price': 150.00
+    })
 except MessageValidationError as e:
     print(f"Validation error: {e}")
 ```
 
-## Examples
+## Integration with Alpaca Broker Service
 
-Example scripts are available in the `main/utils/redis/examples` directory:
+This Redis library is used by the Alpaca Broker Service to:
 
-- `test_publisher.py` - Example of publishing price messages
-- `test_subscriber.py` - Example of subscribing to price messages
-- `test_simplified_message.py` - Example of message validation and handling
-- `test_redis_lib.py` - Example of the publisher and subscriber working together
+1. **Receive registration requests**:
+   - Trading bots register interest in specific tickers
+   - Broker subscribes to Alpaca streaming for those tickers
+
+2. **Distribute market data**:
+   - Price updates are published to ticker-specific channels
+   - Order updates are published to account-specific channels
+
+## Usage in SCALE_T Trading Bot
+
+The SCALE_T bot uses this library to:
+
+1. **Register interest in tickers**:
+   - Sends registration messages to the broker
+   - Subscribes to ticker-specific channels
+
+2. **Receive real-time data**:
+   - Processes price updates to trigger trading decisions
+   - Processes order updates to track position changes
