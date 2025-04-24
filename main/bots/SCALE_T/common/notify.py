@@ -23,6 +23,8 @@ import subprocess
 
 def send_notification(title, message):
     """Displays a macOS notification with sound using terminal-notifier."""
-    subprocess.run(["terminal-notifier", "-title", title, "-message", message, "-sound", "default"])
+    # subprocess.run(["terminal-notifier", "-title", title, "-message", message, "-sound", "default"])
+    # We can add others in here
+    pass
 
 # send_notification("Test", "Did this make a sound?")

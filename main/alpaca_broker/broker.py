@@ -14,8 +14,9 @@ from alpaca.trading.stream import TradingStream
 from alpaca.trading.models import TradeUpdate
 
 # Import Redis utilities from the custom wrapper
-from main.utils.redis import RedisPublisher, RedisSubscriber, CHANNELS
-
+from main.utils.redis import (
+    RedisPublisher, RedisSubscriber, CHANNELS, REDIS_HOST_DOCKER, REDIS_PORT, REDIS_DB
+)
 from ..bots.SCALE_T.common.logging_config import get_logger
 from ..bots.SCALE_T.common.constants import ENV_FILE, TRADING_TYPE_TO_KEY_NAME, TradingType
 from .constants import MessageType, StreamType # Keep internal constants if needed elsewhere
@@ -29,8 +30,8 @@ class AlpacaBroker:
         self.logger.info("Initializing AlpacaBroker")
 
         self._running = False
-        self._price_producer = None
-        self._order_producer = None
+        self._price_producer_thread = None
+        self._order_producer_thread = None
         self._broker_registration_thread = None # Thread for registering tickers
 
         # Stream configuration
@@ -44,9 +45,9 @@ class AlpacaBroker:
         # Redis configuration
         self._redis_publisher = None
         self._redis_subscriber = None
-        self._redis_host = os.environ.get("REDIS_HOST", "localhost")
-        self._redis_port = int(os.environ.get("REDIS_PORT", 6379))
-        self._redis_db = int(os.environ.get("REDIS_DB", 0))
+        self._redis_host = os.environ.get("REDIS_HOST", REDIS_HOST_DOCKER)
+        self._redis_port = int(os.environ.get("REDIS_PORT", REDIS_PORT))
+        self._redis_db = int(os.environ.get("REDIS_DB", REDIS_DB))
         self._registration_channel = CHANNELS.BROKER_REGISTRATION
 
         # Initialize Redis connections
@@ -58,13 +59,13 @@ class AlpacaBroker:
             self._redis_publisher = RedisPublisher(
                 host=self._redis_host, port=self._redis_port, db=self._redis_db
             )
-            self._redis_publisher.ping()
+            assert self._redis_publisher.connection.connection.ping() == True, "Failed to ping Redis publisher"
             self.logger.info(f"Redis Publisher connected to {self._redis_host}:{self._redis_port}")
 
             self._redis_subscriber = RedisSubscriber(
                 host=self._redis_host, port=self._redis_port, db=self._redis_db
             )
-            self._redis_subscriber.ping()
+            assert self._redis_subscriber.connection.connection.ping() == True, "Failed to ping Redis subscriber"
             self.logger.info(f"Redis Subscriber connected to {self._redis_host}:{self._redis_port}")
 
         except Exception as e:
@@ -84,7 +85,6 @@ class AlpacaBroker:
         if not self._api_key or not self._secret_key:
             self.logger.error(f"Missing API keys for {trading_type.value} trading. Key ID: {key_id_name}, Secret Key: {secret_key_name}")
             raise ValueError(f"Missing API keys for {trading_type.value} trading")
-
         self.logger.info(f"API keys configured for {trading_type.value} trading")
 
     def _publish_to_redis(self, channel_name: str, data: dict):
@@ -99,6 +99,9 @@ class AlpacaBroker:
             self.logger.debug(f"Published to {channel_name}: {data}")
         except Exception as e: # Catch potential errors from the custom publisher
             self.logger.error(f"Failed to publish to Redis channel {channel_name}: {e}")
+
+    async def price_handler(self, data: Trade):
+        self.handle_price_update({"price": str(data.price), "symbol": data.symbol, "timestamp": str(data.timestamp)})
 
     def handle_price_update(self, price_data):
         """Handle incoming price updates and publish to the dynamic ticker channel."""
@@ -116,7 +119,10 @@ class AlpacaBroker:
             "volume": price_data.get("volume"), # Include volume if available
             "symbol": ticker # Explicitly include symbol in payload
         }
-        self._publish_to_redis(channel_name, message_data)
+        if self._redis_publisher:
+            self._publish_to_redis(channel_name, message_data)
+        else:
+            self.logger.warning("Redis publisher not connected. Cannot publish price update.")
 
     def handle_order_update(self, trade_update: TradeUpdate):
         """Handle incoming order updates and publish to the dynamic ticker channel."""
@@ -163,8 +169,7 @@ class AlpacaBroker:
                  "trail_percent": str(trade_update.order.trail_percent) if trade_update.order.trail_percent else None,
                  "trail_price": str(trade_update.order.trail_price) if trade_update.order.trail_price else None,
                  "hwm": str(trade_update.order.hwm) if trade_update.order.hwm else None,
-                 "commission": str(trade_update.order.commission) if trade_update.order.commission else None,
-                 "source": trade_update.order.source
+                 "source": "alpaca"
              },
              "timestamp": str(trade_update.timestamp),
              "position_qty": str(trade_update.position_qty) if trade_update.position_qty else None,
@@ -180,11 +185,8 @@ class AlpacaBroker:
         self._publish_to_redis(channel_name, message_data)
 
     # --- Alpaca Stream Producers ---
-    def _run_price_producer(self):
+    def _run_price_producer_thread(self):
         """Run the price update producer thread."""
-        if not self._subscribed_symbols:
-            self.logger.info("No symbols subscribed for price updates. Price producer not starting.")
-            return
         try:
             self._price_stream = StockDataStream(
                 api_key=self._api_key,
@@ -192,12 +194,9 @@ class AlpacaBroker:
                 feed=DataFeed.SIP
             )
 
-            async def price_handler(data: Trade):
-                self.handle_price_update({"price": str(data.price), "symbol": data.symbol, "timestamp": str(data.timestamp)})
-
             self.logger.info(f"Price producer subscribing to: {list(self._subscribed_symbols)}")
             self._price_stream.subscribe_trades(
-                price_handler,
+                self.price_handler,
                 *list(self._subscribed_symbols)
             )
             self._price_stream.run() # This blocks until stop() is called or an error occurs
@@ -208,7 +207,7 @@ class AlpacaBroker:
             self.logger.info("Price producer thread finished.")
 
 
-    def _run_order_producer(self):
+    def _run_order_producer_thread(self):
         """Run the order update producer thread."""
         try:
             self._order_stream = TradingStream(
@@ -229,93 +228,71 @@ class AlpacaBroker:
         finally:
             self.logger.info("Order producer thread finished.")
 
-
-    # --- Redis Subscription Handler (Step 3.5.2) ---
     def handle_registration_message(self, message):
         """Handle incoming registration messages from Redis."""
-        try:
-            # Assuming message['data'] is the JSON payload from the wrapper
-            payload = message.get('data', '{}')
-            sender = payload.get('sender', 'unknown')
-            action = payload.get('action')
-            ticker = payload.get('ticker')
-
-            self.logger.info(f"Received registration request from {sender}: Action={action}, Ticker={ticker}")
-
-            if not action or not ticker:
-                self.logger.warning("Invalid registration message received (missing action or ticker).")
+        self.logger.debug(f"Received registration message: {message}")
+        print(f"running: {self._running}, price producer thread: {self._price_producer_thread}, price stream: {self._price_stream}")
+        if self._running and self._price_producer_thread and self._price_producer_thread.is_alive() and self._price_stream:
+            try:
+                data = message.get('data', '{}')
+                symbol = data.get('ticker')
+                action = data.get('action')
+                if action == "subscribe":
+                    self.subscribe_symbol(symbol)
+                elif action == "unsubscribe":
+                    self.unsubscribe_symbol(symbol)
+                else:
+                    self.logger.warning(f"Unknown action in registration message: {action}")
+                    return
+            except Exception as e:
+                self.logger.error(f"Error handling registration message: {e}")
                 return
+        else:
+            self.logger.warning("Price producer thread not running or not alive. Dumping message.")
 
-            if action == "subscribe":
-                self.subscribe_symbols([ticker]) # Pass ticker as a list
-            elif action == "unsubscribe":
-                self.unsubscribe_symbols([ticker]) # Pass ticker as a list
-            else:
-                self.logger.warning(f"Unknown action in registration message: {action}")
-
-        except json.JSONDecodeError as e:
-             self.logger.error(f"Failed to decode registration message data: {e} - Raw Data: {message.get('data')}")
-        except Exception as e:
-            self.logger.error(f"Error handling registration message: {e} - Message: {message}")
+        
 
     # --- Symbol Subscription Management ---
-    def subscribe_symbols(self, symbols: List[str]):
+    def subscribe_symbol(self, symbol: str):
         """Subscribe to price updates for given symbols."""
-        new_symbols = set(s.upper() for s in symbols if isinstance(s, str)) - self._subscribed_symbols
-        if not new_symbols:
-            self.logger.debug(f"Symbols {symbols} already subscribed or invalid.")
+        symbol = symbol.upper()
+        if symbol in self._subscribed_symbols:
+            self.logger.debug(f"Symbol {symbol} already subscribed.")
             return
-
-        self._subscribed_symbols.update(new_symbols)
-        self.logger.info(f"Added subscriptions for: {new_symbols}. Current: {self._subscribed_symbols}")
-
+        
+        self._subscribed_symbols.add(symbol)
+        self.logger.info(f"Subscribed to price updates for: {symbol}. Current: {self._subscribed_symbols}")
         # Restart price producer thread if running to include new symbols
-        if self._running:
-            self._restart_price_producer()
+        if self._running and self._price_stream:
+            self._price_stream.subscribe_trades(
+                self.price_handler,
+                symbol
+            )
+            self.logger.info(f"Subscribed to price updates for: {symbol} in Alpaca stream.")
+        else:
+            self.logger.info("Price producer not running, will subscribe when started.")
 
 
-    def unsubscribe_symbols(self, symbols: List[str]):
+    def unsubscribe_symbol(self, symbol: str):
         """Unsubscribe from price updates for given symbols."""
-        removed_symbols = self._subscribed_symbols.intersection(s.upper() for s in symbols if isinstance(s, str))
-        if not removed_symbols:
-            self.logger.debug(f"Symbols {symbols} not currently subscribed or invalid.")
+        removed_symbol = symbol.upper() if symbol in self._subscribed_symbols else None
+        if not removed_symbol:
+            self.logger.debug(f"Symbol: {symbol} not currently subscribed or invalid.")
             return
 
-        self._subscribed_symbols.difference_update(removed_symbols)
-        self.logger.info(f"Removed subscriptions for: {removed_symbols}. Current: {self._subscribed_symbols}")
+        print(f"Is it in subscribed symbols? {removed_symbol}")
+        print(f"Before removing symbol from subscribed symbols: {self._subscribed_symbols}")
+        res = self._subscribed_symbols.discard(removed_symbol)
+        print("Removing symbol from subscribed symbols:", removed_symbol, res)
+        print(f"After removing symbol from subscribed symbols: {self._subscribed_symbols}")
+        self.logger.info(f"Removed subscriptions for: {removed_symbol}. Current: {self._subscribed_symbols}")
 
         # Restart price producer thread if running to remove symbols
-        if self._running:
-            self._restart_price_producer()
-
-    def _restart_price_producer(self):
-        """Stops and starts the price producer thread safely."""
-        self.logger.info("Attempting to restart price producer...")
-        # Stop existing thread and stream if they exist
-        if self._price_stream:
-            try:
-                self._price_stream.close()
-                self.logger.info("Closed existing price stream.")
-            except Exception as e:
-                self.logger.error(f"Error closing price stream during restart: {e}")
-            self._price_stream = None # Set to None after closing
-        if self._price_producer and self._price_producer.is_alive():
-            self._price_producer.join(timeout=0.5)
-            if self._price_producer.is_alive():
-                 self.logger.warning("Price producer thread did not exit cleanly during restart.")
-            else:
-                 self.logger.info("Existing price producer thread joined.")
-        self._price_producer = None
-
-        # Start new thread only if there are symbols and broker is running
-        if self._running and self._subscribed_symbols:
-            self._price_producer = threading.Thread(target=self._run_price_producer)
-            self._price_producer.daemon = True
-            self._price_producer.start()
-            self.logger.info(f"Restarted price producer for symbols: {self._subscribed_symbols}")
-        elif self._running:
-             self.logger.info("No symbols subscribed, price producer not restarted.")
-
+        if self._running and self._price_stream:
+            self._price_stream.unsubscribe_trades(removed_symbol)
+            self.logger.info(f"Unsubscribed from price updates for: {removed_symbol}")
+        else:
+            self.logger.info("Price producer not running, will unsubscribe when started.")
 
     # --- Start/Stop ---
     def start(self):
@@ -332,31 +309,24 @@ class AlpacaBroker:
             self.logger.info("Starting producer threads and Redis subscriber")
 
             # Start price producer (will only run if symbols are subscribed later)
-            self._price_producer = threading.Thread(target=self._run_price_producer)
-            self._price_producer.daemon = True
-            self._price_producer.start()
+            self._price_producer_thread = threading.Thread(target=self._run_price_producer_thread, daemon=True)
+            self._price_producer_thread.start()
             self.logger.info("Price producer thread started (will wait for subscriptions).")
 
 
             # Start order producer
-            self._order_producer = threading.Thread(target=self._run_order_producer)
-            self._order_producer.daemon = True
-            self._order_producer.start()
+            self._order_producer_thread = threading.Thread(target=self._run_order_producer_thread, daemon=True)
+            self._order_producer_thread.start()
             self.logger.info("Order producer started")
 
-            # Start Redis subscriber (Step 3.5.3 & 3.5.4)
             try:
-                # Use the channel value directly
                 if self._broker_registration_thread and self._broker_registration_thread.is_alive():
-                    # If the thread is already alive, we assume the subscriber is running
-                    # and skip starting it again
                     self.logger.info("Redis subscriber already running. Skipping")
                     return
                 self._redis_subscriber.subscribe(self._registration_channel, self.handle_registration_message)
-                self._broker_registration_thread = threading.Thread(target=self._redis_subscriber.start_listening)
-                self._broker_registration_thread.daemon = True
+                self._broker_registration_thread = threading.Thread(target=self._redis_subscriber.start_listening, daemon=True)
                 self._broker_registration_thread.start()
-                self.logger.info(f"Redis subscriber started listening on {self._registration_channel}")
+                self.logger.info(f"Redis subscriber started listening on {self._registration_channel}, worker thread started.")
             except Exception as e:
                  self.logger.error(f"Failed to start Redis subscriber: {e}")
                  self.stop() # Stop everything if subscriber fails to start
@@ -365,10 +335,9 @@ class AlpacaBroker:
     def stop(self):
         """Stop the broker's producer threads and Redis subscriber."""
         if self._running:
-            self._running = False # Signal threads to stop
+            self._running = False # Signal threads to stop. Which threads tho? TODO
             self.logger.info("Stopping broker...")
 
-            # Stop Redis subscriber first (Step 3.5.5)
             if self._redis_subscriber:
                 try:
                     self._redis_subscriber.close() # Close connection first
@@ -376,6 +345,8 @@ class AlpacaBroker:
                 except Exception as e:
                     self.logger.error(f"Error closing Redis subscriber connection: {e}")
             if self._broker_registration_thread and self._broker_registration_thread.is_alive():
+                self._redis_subscriber.stop_listening() # Stop listening for messages
+                self.logger.info("Redis subscriber stopped listening for messages.")
                 self._broker_registration_thread.join(timeout=1.0) # Join after closing connection
                 if self._broker_registration_thread.is_alive():
                     self.logger.warning("Redis subscriber thread did not exit cleanly.")
@@ -403,16 +374,16 @@ class AlpacaBroker:
                     self.logger.error(f"Error closing order stream: {e}")
 
             # Join Alpaca producer threads
-            if self._price_producer and self._price_producer.is_alive():
-                self._price_producer.join(timeout=1.0)
-                if self._price_producer.is_alive():
+            if self._price_producer_thread and self._price_producer_thread.is_alive():
+                self._price_producer_thread.join(timeout=1.0)
+                if self._price_producer_thread.is_alive():
                     self.logger.warning("Price producer thread did not exit cleanly.")
                 else:
                     self.logger.info("Price producer thread stopped.")
 
-            if self._order_producer and self._order_producer.is_alive():
-                self._order_producer.join(timeout=1.0)
-                if self._order_producer.is_alive():
+            if self._order_producer_thread and self._order_producer_thread.is_alive():
+                self._order_producer_thread.join(timeout=1.0)
+                if self._order_producer_thread.is_alive():
                     self.logger.warning("Order producer thread did not exit cleanly.")
                 else:
                     self.logger.info("Order producer thread stopped.")

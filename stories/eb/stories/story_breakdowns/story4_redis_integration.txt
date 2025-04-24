@@ -74,18 +74,17 @@ Implementation Strategy
    - Check unit tests
 
 
-4. Error Handling (Next after 3.8) - Needs review
-   4.1. Add error handling for Redis connections.
-   4.2. Add error handling for publishing failures.
-   4.3. Add error handling for subscriber message processing.
-   4.4. Implement retry logic if necessary.
-   4.5. Add logging for Redis operations.
+4. Migration to redis on scale_t to broker integration
+   - order update producer on scale_t subscribe redis instead
+      - will keep manual update in case of need
+   - Once successful above - move price update there as well
+      - disable current price update
+      - publisher to subscribe for ticker updates(price mainly)
+      - watch broker prices go to redis
+      - read on redis channel, subscribe and act scale_t
 
-5. Testing Structure (After Error Handling)
-   5.1. Add unit tests mocking Redis components.
-   5.2. Test message formatting/validation for the combined channel schema.
-   5.3. Add integration tests.
-   5.4. Test error handling scenarios.
+5. Testing Structure 
+   - Did some end to end testing and everything worked like magic
 
 Integration Points
 ----------------
