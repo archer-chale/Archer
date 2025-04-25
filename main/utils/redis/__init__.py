@@ -1,4 +1,4 @@
-from .constants import CHANNELS, MESSAGE_SCHEMAS
+from .constants import CHANNELS, MESSAGE_SCHEMAS, REDIS_HOST_DOCKER, REDIS_PORT, REDIS_DB
 from .connection import RedisConnection
 from .publisher import RedisPublisher
 from .subscriber import RedisSubscriber

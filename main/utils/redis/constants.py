@@ -2,6 +2,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Default Redis connection parameters
+REDIS_HOST_DOCKER = 'redis'
+REDIS_PORT = 6379
+REDIS_DB = 0
+
 # --- Channel Definitions ---
 
 class CHANNELS:
@@ -56,7 +61,7 @@ class MESSAGE_SCHEMAS:
             "type": str, # Expected values: 'price', 'order'
             "timestamp": str, # ISO format string preferred
             "price": (int, float, str), # Allow string for Decimal conversion downstream
-            "volume": (int, float, str), # Allow string for Decimal conversion downstream
+            "volume": (int, float, str, type(None)), # Allow string for Decimal conversion downstream
             "symbol": str,
             "order_data": dict # The serialized TradeUpdate dict
         },

@@ -3,6 +3,7 @@ import threading
 import asyncio
 import sys
 from typing import Tuple
+from datetime import datetime as dt
 import time
 
 from alpaca.trading.enums import OrderStatus, OrderType, OrderSide
@@ -12,12 +13,17 @@ from alpaca.trading.stream import TradingStream
 from alpaca.data.live.stock import StockDataStream
 from alpaca.data.enums import DataFeed
 from alpaca.data.models.trades import Trade
+from alpaca.trading import TradeUpdate
 
 from ..common.logging_config import get_logger
 from ..common.notify import send_notification
 from ..common.constants import TradingType
 
 from .constants import MessageType, OrderState
+
+from ....utils.redis import ( 
+    RedisSubscriber, RedisPublisher, CHANNELS, REDIS_HOST_DOCKER, REDIS_PORT, REDIS_DB
+)
 
 class DecisionMaker:
     def __init__(self, csv_service, alpaca_interface):
@@ -173,9 +179,6 @@ class DecisionMaker:
         Only triggers the update once per minute to avoid excessive updates.
         Uses direct Alpaca objects and places them in the queue for consistent handling.
         """
-        from datetime import datetime as dt
-        from alpaca.trading import TradeUpdate
-        
         current_time = time.time()
         # Check if it's been at least 10 seconds since the last manual update
         if current_time - self.last_manual_update_time < self.manual_update_interval_sec:
@@ -189,7 +192,7 @@ class DecisionMaker:
                 latest_order = self.alpaca_interface.get_order_by_id(self.pending_order.id)
                 
                 # Create a proper TradeUpdate object that matches what comes from the Alpaca stream
-                trade_update = TradeUpdate(order=latest_order, event=MessageType.ORDER_UPDATE.value, timestamp=dt.utcnow())
+                trade_update = TradeUpdate(order=latest_order, event=MessageType.ORDER_UPDATE.value, timestamp=dt.now(dt.timezone.utc))
                 
                 # Queue the update just like the websocket would
                 self.action_queue.put({'type': MessageType.ORDER_UPDATE, 'data': trade_update, 'source': 'manual'})
@@ -291,9 +294,7 @@ class DecisionMaker:
             self.logger.debug(f"Rows to sell: {len(rows_to_sell)}")
 
             total_qty_to_sell = sum(float(row['held_shares']) for row in rows_to_sell)
-            # We need to place whole orders before fractional orders
-            # Check if order amount is greater than 1 + trim the decimals and place order
-            # Otherwise just place order(Covers everything less than one and whole shares off the bat)
+
             if total_qty_to_sell > 1 and total_qty_to_sell % 1 > 0:
                 self.logger.debug(f"Wanted to sell {total_qty_to_sell} but trimming to {int(total_qty_to_sell)}")
                 total_qty_to_sell = int(total_qty_to_sell)
@@ -362,10 +363,7 @@ class DecisionMaker:
     def consume_actions(self):
         while True:
             message = self.action_queue.get()
-            # self.logger.info(f"Consuming action: {message['type']}")
             if message['type'] == MessageType.ORDER_UPDATE:
-                # Trying to filter out order updates that shouldn't be coming in
-                # self.pending_order = message['data'].order
                 self.logger.info(f"Handling order update from {message.get('source','unknown')}")
                 self.handle_order_update(message['data'].order)
             elif message['type'] == 'price_update':                    
@@ -376,40 +374,46 @@ class DecisionMaker:
             self.action_queue.task_done()
 
     def launch_action_producer_threads(self):
-        thread1 = threading.Thread(target=self._pending_order_update_producer, daemon=True)
-        thread2 = threading.Thread(target=self._price_update_producer, daemon=True)
+        thread1 = threading.Thread(target=self._subscribe_redis_producer, daemon=True)
         thread1.start()
-        thread2.start()
+        self.logger.info("Started action producer threads.")
 
-    def _pending_order_update_producer(self):
-        trading_stream = TradingStream(
-            self.alpaca_interface.api_key,
-            self.alpaca_interface.secret_key,
-            paper=(self.alpaca_interface.trading_type == TradingType.PAPER)
-        )
-
-        async def update_handler(data):
-            self.logger.debug("Received order update")
-            message = {'type': MessageType.ORDER_UPDATE, 'data': data, 'source': 'alpaca'}
-            self.action_queue.put(message)
-            self.logger.info(f"Order update received for order ID: {data.order.id}")
-            self.logger.info(f"Order status: {data.order.status}")
-            self.logger.info(f"Order event: {data.event} from alpaca not manual")
-
-        trading_stream.subscribe_trade_updates(update_handler)
-        trading_stream.run()
-
-    def _price_update_producer(self):
-        stock_stream = StockDataStream(
-            api_key=self.alpaca_interface.api_key,
-            secret_key=self.alpaca_interface.secret_key,
-            feed = DataFeed.SIP
-        )
-
-        async def price_handler(data: Trade | dict) -> None:
-            # self.logger.debug(f"Received price update: {data.price}")
-            message = {'type': 'price_update', 'data': data.price} # Modified line
-            self.action_queue.put(message)
-
-        stock_stream.subscribe_trades(price_handler, self.csv_service.ticker)
-        stock_stream.run()
+    def _subscribe_redis_producer(self):
+        # Need to add price subscriber here as well
+        # Create a publisher and publish subscribe to price for ticker
+        publisher = RedisPublisher(host=REDIS_HOST_DOCKER, port=REDIS_PORT, db=REDIS_DB)
+        # Publish to the Broker channel
+        message = {
+            'action': 'subscribe',
+            'ticker': self.csv_service.ticker
+        }
+        publisher.publish(CHANNELS.BROKER_REGISTRATION, message_data=message, sender='scale_t')
+        self.logger.info(f"Registered to channel {CHANNELS.BROKER_REGISTRATION} for ticker {self.csv_service.ticker}")
+        # Close publisher after subscribing
+        publisher.close()
+        # create a subscriber
+        subscriber = RedisSubscriber(host=REDIS_HOST_DOCKER, port=REDIS_PORT, db=REDIS_DB)
+        # generate the name of the channel
+        channel_name = CHANNELS.get_ticker_channel(self.csv_service.ticker)
+        # define the handler
+        def redis_handler(message):
+            data = message.get('data', {})
+            if data.get('type') == 'price':
+                price = data.get('price', None)
+                if price is not None:
+                    self.action_queue.put({'type': 'price_update', 'data': float(price), 'source': 'redis'})
+            if data.get('type') == 'order':
+                trdUpdate = message.get('data', {}).get('order_data', {})
+                order_json = trdUpdate.get('order', None)
+                order = Order(**order_json)
+                myTradeUpdate = TradeUpdate(order=order, event=trdUpdate.get('event', None), timestamp=dt.fromisoformat(trdUpdate.get('timestamp')))
+                # Check if the message is a trade update
+                self.logger.info(f"Trade update: {myTradeUpdate}")
+                self.logger.info(f"Trade update event: {myTradeUpdate.event}")
+                self.action_queue.put({'type': MessageType.ORDER_UPDATE, 'data': myTradeUpdate, 'source': 'redis'})
+        # subscribe to the channel
+        assert subscriber.subscribe(channel_name, redis_handler) == True, f"Failed to subscribe to channel {channel_name}"
+        # start listening for messages
+        self.logger.info(f"Subscribed to channel {channel_name}")
+        subscriber.start_listening()
+        self.logger.info("Starting Redis subscriber...")
