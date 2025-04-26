@@ -1,7 +1,55 @@
 import yaml
+import os, sys
+from main.bots.SCALE_T.brokerages.alpaca_interface import AlpacaInterface
+from main.bots.SCALE_T.common.constants import TradingType
 
+from main.bots.SCALE_T.csv_utils.csv_tool import CSVWorker
+# Ensure configs folder exists
+# .env existence 
+if not os.path.exists("configs"):
+    os.makedirs("configs")
+    print("configs folder created.")
+if not os.path.exists("configs/.env"):
+    print("configs/.env file does not exist.")
+    print("Please add your .env file to the configs folder.")
+    sys.exit(1) 
+# tickers.txt existence and save as list
+
+# Ensure data folder exists
+tickers_list_path = "configs/tickers.txt"
+if not os.path.exists(tickers_list_path):
+    print(f"{tickers_list_path} file does not exist.")
+    print("Please add your tickers.txt file to the configs folder.")
+    sys.exit(1)
 with open("configs/tickers.txt") as f:
     tickers = [line.strip() for line in f]
+
+# Ensure data folder for tickers exists
+if not os.path.exists("./data/SCALE_T/ticker_data/paper"):
+    os.makedirs("./data/SCALE_T/ticker_data/paper")
+    print("data folder created.")
+
+alpaca_interface = AlpacaInterface(TradingType.PAPER)
+for ticker in tickers:
+    if not os.path.exists(f"./data/SCALE_T/ticker_data/paper/{ticker.upper()}.csv"):
+        print(f"Data file for {ticker} does not exist.")
+        print(f"Trying to create a new one.")
+        # Create a new file with the ticker name`1`
+        worker = CSVWorker(ticker.upper(), TradingType.PAPER)
+        # Create the answers
+        alpaca_interface.ticker = ticker.upper()
+        answers = {
+            "total_cash": 10000,
+            "risk_type": 2,
+            "percentage_diff": 0.005,
+            "starting_buy_price": round(alpaca_interface.get_current_price()*1.07,2),
+            "distribution_style": "linear",
+        }
+        # Create the csv file
+        worker.create_csv(answers)
+        print(f"Created new data file for {ticker}.")
+    
+print("All data files exist. Proceeding to generate docker-compose file.")
 
 services = {
     "redis": {
