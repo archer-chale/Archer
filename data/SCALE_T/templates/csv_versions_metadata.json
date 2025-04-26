@@ -1,0 +1,51 @@
+{
+  "description": "CSV template for SCALE_T bot",
+  "versions": [
+    {
+      "version": "1.0",
+      "last_updated": "2024-03-03T14:30:00Z",
+      "columns": [
+        {
+          "name": "index",
+          "config": {"type": "int", "required": true, "unique": true}
+        },
+        {
+          "name": "buy_price",
+          "config": {"type": "float", "required": true, "min": 0}
+        },
+        {
+          "name": "sell_price",
+          "config": {"type": "float", "required": true, "min": 0}
+        },
+        {
+          "name": "target_shares",
+          "config": {"type": "float", "required": true, "min": 0}
+        },
+        {
+          "name": "held_shares",
+          "config": {"type": "float", "required": true, "min": 0}
+        },
+        {
+          "name": "pending_order_id",
+          "config": {"type": "int", "required": true, "unique": true}
+        },
+        {
+          "name": "spc",
+          "config": {"type": "str", "required": true}
+        },
+        {
+          "name": "unrealized_profit",
+          "config": {"type": "float", "required": true, "min": 0}
+        },
+        {
+          "name": "last_action",
+          "config": {"type": "str", "required": true}
+        },
+        {
+          "name": "profit",
+          "config": {"type": "float", "required": true, "min": 0}
+        }
+      ]
+    }
+  ]
+}
