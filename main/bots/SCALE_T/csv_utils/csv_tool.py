@@ -6,6 +6,7 @@ processing and manipulating CSV data according to the SCALE_T strategy.
 """
 
 from typing import Dict, Optional, Union
+from main.bots.SCALE_T.common.constants import TradingType
 from main.bots.SCALE_T.csv_utils.csv_core import CSVCore
 from main.bots.SCALE_T.csv_utils.csv_tool_prompts import create_csv_questionaire, manipulate_csv_questionaire
 from main.bots.SCALE_T.csv_utils.csv_tool_helper import find_least_decimal_digit_for_shares
@@ -90,12 +91,12 @@ class CSVWorker(CSVCore):
 if __name__ == "__main__":
     # Example usage of the CSVWorker class
     import argparse
-    from main.bots.SCALE_T.common.constants import get_ticker_filepath, PAPER_TRADING, LIVE_TRADING
+    from main.bots.SCALE_T.common.constants import get_ticker_filepath
     
     parser = argparse.ArgumentParser(description="CSV Worker for SCALE_T bot")
     parser.add_argument("--ticker", type=str, required=True, help="Stock ticker symbol (e.g., 'AAPL')")
-    parser.add_argument("--trading-type", type=str, choices=[PAPER_TRADING, LIVE_TRADING], 
-                        default=PAPER_TRADING, help="Trading type (paper or live)")
+    parser.add_argument("--trading-type", type=TradingType, 
+                        default=TradingType.PAPER, choices=[TradingType.LIVE, TradingType.PAPER], help="Trading type (paper or live)")
     parser.add_argument("--custom-id", type=str, help="Optional custom identifier for the CSV file")
     args = parser.parse_args()
     

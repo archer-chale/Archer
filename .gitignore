@@ -25,7 +25,10 @@ main/bots/SCALE_T/trading/simple\ feature\ implementation
 todos2.todo
 todos.todo
 trashCan/
-data/
+data/ticker_data/
+data/SCALE_T/*
+!data/SCALE_T/templates
+
 
 # production
 /build
