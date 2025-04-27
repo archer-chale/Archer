@@ -17,10 +17,6 @@ ALPACA_BROKERAGE = "alpaca"
 
 SUPPORTED_BROKERAGES = [ALPACA_BROKERAGE]
 
-# Trading types
-# PAPER_TRADING = TradingType.PAPER
-# LIVE_TRADING = "live"
-
 class TradingType(Enum):
     PAPER = "paper"
     LIVE = "live"
