@@ -1,0 +1,157 @@
+What is the user story?
+- As a user I should be able to view what my bots are doing when I am on the go on my mobile phone
+
+Why do we want to solve this user story ?
+- Currently the only way to view the performance of the bots is through alpha, we want to be able to view what the bots are doing on our own personal hosted firebase client application, this way we can make any adjustment as needed
+
+What is the high overview idea
+- The idea is currently we are using redis to communicate between containers
+(main\utils\redis\README.md)
+- We have multiple channels forwarding data, these data can include prices and orders for alpha (main\alpaca_broker\README.md) based on the tickers we provide
+
+Wha we want to create is a firebase-server that will subscribe to all of these topics and update our real time database, this way when we create our frontend client the user will be able to view everything that is going on with their bots
+
+For now we will focus on the basic information like the prices and orders for the tickers
+- Our new firebase server will also run in a docker container locally
+Create all of the channels that are avaliable, console log the data to verify that we are getting it and forwards the data in firebase real time database
+
+
+This is details about how we use redis - main\utils\redis\README.md
+and this is the redis utils folder - main\utils\redis
+
+This is readme on our bot - main\bots\SCALE_T\README.md
+
+This is a readme on our alpaca broker - main\alpaca_broker\README.md
+
+Creating this will allow us to scale and we can add more data to in the future and will allow our user to stay in touch with their bots that are running at home
+
+Ask me detailed questions to make sure we are on the same page
+
+
+Redis Integration
+Which specific Redis channels/topics are most important to monitor initially?
+- For now it will be get_ticker_channel - Which is currently used in the following files:
+- main\alpaca_broker\broker.py
+- main\bots\SCALE_T\trading\decision_maker.py
+
+Currently this channel is used for both prices and orders but another dev is working on making it into a differet channel
+
+
+What's the current data structure of the messages in these Redis channels?
+For this current channel since it is combined it is:
+        channel_name = CHANNELS.get_ticker_channel(ticker)
+        message_data = {
+            "type": "price",
+            "timestamp": price_data.get("timestamp", str(time.time())), # Add timestamp if missing
+            "price": price_data.get("price"),
+            "volume": price_data.get("volume"), # Include volume if available
+            "symbol": ticker # Explicitly include symbol in payload
+        }
+
+        And  def handle_order_update(self, trade_update: TradeUpdate):
+        """Handle incoming order updates and publish to the dynamic ticker channel."""
+        self.logger.debug(f"Handling order update: {trade_update}")
+        ticker = trade_update.order.symbol
+        if not ticker:
+            self.logger.warning("Order update missing symbol, cannot publish to Redis.")
+            return
+
+        channel_name = CHANNELS.get_ticker_channel(ticker)
+        # Convert TradeUpdate object to a dictionary suitable for the schema
+        order_data_dict = {
+             "event": trade_update.event,
+             "execution_id": str(trade_update.execution_id) if trade_update.execution_id else None,
+             "order": {
+                 "id": str(trade_update.order.id),
+                 "client_order_id": trade_update.order.client_order_id,
+                 "created_at": str(trade_update.order.created_at),
+                 "updated_at": str(trade_update.order.updated_at),
+                 "submitted_at": str(trade_update.order.submitted_at),
+                 "filled_at": str(trade_update.order.filled_at) if trade_update.order.filled_at else None,
+                 "expired_at": str(trade_update.order.expired_at) if trade_update.order.expired_at else None,
+                 "canceled_at": str(trade_update.order.canceled_at) if trade_update.order.canceled_at else None,
+                 "failed_at": str(trade_update.order.failed_at) if trade_update.order.failed_at else None,
+                 "replaced_at": str(trade_update.order.replaced_at) if trade_update.order.replaced_at else None,
+                 "replaced_by": str(trade_update.order.replaced_by) if trade_update.order.replaced_by else None,
+                 "replaces": str(trade_update.order.replaces) if trade_update.order.replaces else None,
+                 "asset_id": str(trade_update.order.asset_id),
+                 "symbol": trade_update.order.symbol,
+                 "asset_class": trade_update.order.asset_class.value,
+                 "notional": str(trade_update.order.notional) if trade_update.order.notional else None,
+                 "qty": str(trade_update.order.qty) if trade_update.order.qty else None,
+                 "filled_qty": str(trade_update.order.filled_qty),
+                 "filled_avg_price": str(trade_update.order.filled_avg_price) if trade_update.order.filled_avg_price else None,
+                 "order_class": trade_update.order.order_class.value,
+                 "order_type": trade_update.order.order_type.value,
+                 "side": trade_update.order.side.value,
+                 "time_in_force": trade_update.order.time_in_force.value,
+                 "limit_price": str(trade_update.order.limit_price) if trade_update.order.limit_price else None,
+                 "stop_price": str(trade_update.order.stop_price) if trade_update.order.stop_price else None,
+                 "status": trade_update.order.status.value,
+                 "extended_hours": trade_update.order.extended_hours,
+                 "legs": None,
+                 "trail_percent": str(trade_update.order.trail_percent) if trade_update.order.trail_percent else None,
+                 "trail_price": str(trade_update.order.trail_price) if trade_update.order.trail_price else None,
+                 "hwm": str(trade_update.order.hwm) if trade_update.order.hwm else None,
+                 "source": "alpaca"
+             },
+             "timestamp": str(trade_update.timestamp),
+             "position_qty": str(trade_update.position_qty) if trade_update.position_qty else None,
+             "price": str(trade_update.price) if trade_update.price else None,
+             "qty": str(trade_update.qty) if trade_update.qty else None,
+         }
+        message_data = {
+            "type": "order",
+            "timestamp": str(trade_update.timestamp),
+            "symbol": ticker, # Explicitly include symbol
+            "order_data": order_data_dict
+        }
+        self._publish_to_redis(channel_name, message_data)
+
+        Can view this in main\alpaca_broker\broker.py
+
+
+Are there any rate limiting concerns with the Redis subscription process?
+- Not at the moment
+
+Firebase Implementation
+Do you already have a Firebase project set up for this purpose?
+- Yes
+
+What authentication mechanism should be used for the Firebase database?
+- No
+
+Is there a specific data structure you envision for organizing the data in Firebase?
+- For now we will save the data based on the ticker, because the bots we create on based on the ticker
+
+Docker & Deployment
+Will this Firebase service container need to communicate with other containers besides Redis?
+- No
+
+Are there any specific resource constraints for the Docker container?
+- No
+
+How will the container be deployed and maintained?
+- The container will run locally on the users personal pc at home for privacy
+
+Mobile Client Requirements
+Will you be developing a native mobile app or a progressive web app?
+- This is a simple react website that will be deployed with firebase hosting - but that is client\src\App.tsx out of scope for this story, we will focus on getting the data in the real time database first
+What specific information should be prioritized in the mobile UI?
+- For now the client development is out of scope
+Are there any real-time notification requirements?
+- No
+Data Processing
+Is there any transformation needed for the data before sending it to Firebase?
+- For now no
+How should historical data be handled - should it be stored indefinitely or purged after some time?
+- Should be stored indefinitely for now
+Are there any privacy or security concerns with the data being transferred?
+- No
+Scaling Considerations
+Approximately how many bots and tickers do you expect to monitor initially?
+- There is not a set amount yet 
+What's the expected growth in terms of data volume?
+- Unknown at the moment
+Are there any performance benchmarks this solution needs to meet?
+- Not at the moment
