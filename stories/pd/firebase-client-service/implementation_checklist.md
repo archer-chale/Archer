@@ -20,7 +20,7 @@ Each task includes detailed verification steps to ensure proper implementation. 
 
 ## Docker Configuration
 
-- [ ] **Create `main/firebase_client_service/Dockerfile`**
+- [x] **Create `main/firebase_client_service/Dockerfile`**
   - **Details**: Define the Docker image for the Firebase client service
   - **Implementation**:
     - Use Alpine Linux base image for small footprint
@@ -38,6 +38,7 @@ Each task includes detailed verification steps to ensure proper implementation. 
     - Include any additional libraries needed
   - **Verification**:
     - Verify all required packages are listed with versions
+    Please ask questions to make sure we are on the same page if needed
 
 - [ ] **Create `main/firebase_client_service/docker-compose.yml`**
   - **Details**: Docker Compose file for local testing
