@@ -191,7 +191,7 @@ class AlpacaBroker:
             self._price_stream = StockDataStream(
                 api_key=self._api_key,
                 secret_key=self._secret_key,
-                feed=DataFeed.SIP
+                feed=DataFeed.IEX # IEX | SIP 
             )
 
             self.logger.info(f"Price producer subscribing to: {list(self._subscribed_symbols)}")
