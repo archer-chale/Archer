@@ -11,12 +11,56 @@ Each task includes detailed verification steps to ensure proper implementation. 
 
 ## Project Structure Setup
 
-- [ ] **Create project directory structure**
+- [x] **Create project directory structure**
   - Create `main/firebase_client_service` directory
   - **Reason**: Follows project organization convention and separates the service
   - **Verification**: 
     - Run `ls -la main/firebase_client_service` to confirm directory exists
     - Check that the directory follows project structure conventions
+
+## Docker Configuration
+
+- [ ] **Create `main/firebase_client_service/Dockerfile`**
+  - **Details**: Define the Docker image for the Firebase client service
+  - **Implementation**:
+    - Use Alpine Linux base image for small footprint
+    - Install required Python dependencies
+    - Set up proper working directory and file structure
+    - Define command to start the service
+  - **Verification**:
+    - Run `docker build -t firebase-client-service -f main/firebase_client_service/Dockerfile .`
+    - Verify build completes successfully without errors
+
+- [ ] **Create `main/firebase_client_service/requirements.txt`**
+  - **Details**: List of Python dependencies for the service
+  - **Implementation**:
+    - Include Firebase Admin SDK
+    - Include any additional libraries needed
+  - **Verification**:
+    - Verify all required packages are listed with versions
+
+- [ ] **Create `main/firebase_client_service/docker-compose.yml`**
+  - **Details**: Docker Compose file for local testing
+  - **Implementation**:
+    - Define service with proper volumes for configuration
+    - Link to Redis container
+    - Mount necessary configuration files
+  - **Verification**:
+    - Run `docker-compose -f main/firebase_client_service/docker-compose.yml up -d`
+    - Verify containers start properly
+    - Check container logs for startup messages
+
+- [ ] **Update `generate_compose.py`**
+  - **Details**: Integrate Firebase client service into main docker-compose generation
+  - **Implementation**:
+    - Add Firebase client service to services dictionary
+    - Include volume mounting for adminsdk.json
+    - Set up proper dependencies on Redis and Alpaca broker
+  - **Verification**:
+    - Run `python generate_compose.py`
+    - Verify the generated docker-compose.generated.yml contains Firebase client service
+    - Start the complete stack with `docker-compose -f docker-compose.generated.yml up -d`
+    - Verify all services start correctly and can communicate
 
 ## Core Service Files
 
@@ -64,7 +108,7 @@ Each task includes detailed verification steps to ensure proper implementation. 
 - [ ] **Create `main/firebase_client_service/firebase_client.py`**
   - **Details**: Handles Firebase Realtime Database connection and updates
   - **Implementation**:
-    - Initialize Firebase Admin SDK
+    - Initialize Firebase Admin SDK using credentials from `configs/adminsdk.json`
     - Implement methods to update price and order data
     - Store only current price data for each ticker
     - Compare new price data with existing data before updating to reduce writes
