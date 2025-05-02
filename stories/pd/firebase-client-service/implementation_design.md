@@ -159,14 +159,9 @@ firebase-client-service/
 ├── src/
 │   ├── main.py                    # Entry point
 │   ├── redis_subscriber.py        # Redis connection and subscription logic
-│   ├── message_processor.py       # Message processing and transformation
 │   ├── firebase_client.py         # Firebase connection and data storage
-│   └── utils/
-│       ├── config.py              # Configuration management
-│       └── logging.py             # Logging setup
 ├── Dockerfile                     # Docker build configuration
 ├── requirements.txt               # Python dependencies
-└── docker-compose.yml             # Service orchestration
 ```
 
 ### Redis Subscriber Implementation
@@ -198,8 +193,21 @@ firebase-client-service/
 
 ## Next Steps
 1. Set up the project structure
+- We will create the bear minimum for this service where it can run
+
+
 2. Implement Redis subscriber component
+- We will create a new class that will subscribe to the redis channels and listen to the messages and log the messages for now to confirm it is working, we should be able to view the prices and the orders in the logs
+
+
 3. Implement Firebase client integration
+- We will create a new class that will connect to the firebase database and push the data to the database
+
 4. Create Docker configuration
-5. Implement end-to-end testing
-6. Document usage instructions
+- We will create a dockerfile and update generate_compose.py to include our service
+
+5. Document usage instructions
+- We will create a README.md file to document how the service works
+
+
+
