@@ -75,7 +75,24 @@ services = {
         "container_name": "alpaca_broker",
         # "env_file": ['configs/.env'], # Restore env_file
         "restart": "no",
+        "depends_on": ["redis"],
         "env_file": "configs/.env",
+        "logging": {
+            "driver": "json-file",
+            "options": {
+                "max-size": "10m",
+                "max-file": "3"
+            }
+        },
+    },
+    "firebase_client": {
+        "build": {
+            "context": ".",
+            "dockerfile": "main/firebase_client/Dockerfile",
+        },
+        "container_name": "firebase_client",
+        "restart": "no",
+        "depends_on": ["redis"],
         "logging": {
             "driver": "json-file",
             "options": {
@@ -99,6 +116,7 @@ for ticker in tickers:
             f"./data/SCALE_T/ticker_data/paper/{ticker.upper()}.csv:/app/data/ticker_data/paper/{ticker.upper()}.csv",
         ],
         "restart": "no",
+        "depends_on": ["redis"],
         "logging": {
             "driver": "json-file",
             "options": {
