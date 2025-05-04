@@ -49,6 +49,11 @@ for ticker in tickers:
         worker.create_csv(answers)
         print(f"Created new data file for {ticker}.")
     
+# Ensure data folder for performance exists
+if not os.path.exists("./data/performance"):
+    os.makedirs("./data/performance")
+    print("data folder for performance created.")
+
 print("All data files exist. Proceeding to generate docker-compose file.")
 
 services = {
@@ -83,7 +88,25 @@ services = {
                 "max-file": "3"
             }
         },
-    }
+    },
+    "performance": {
+        "build": {
+            "context": ".",
+            "dockerfile": "main/performance/Dockerfile",
+        },
+        "container_name": "performance",
+        "volumes": [
+            "./data/performance:/app/data/performance",
+        ],
+        "restart": "no",
+        "logging": {
+            "driver": "json-file",
+            "options": {
+                "max-size": "10m",
+                "max-file": "3"
+            }
+        },
+    },
 }
 
 # Add bot services
