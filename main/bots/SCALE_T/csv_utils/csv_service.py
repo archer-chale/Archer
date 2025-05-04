@@ -109,7 +109,12 @@ class CSVService(CSVCore):
             raise ValueError(f"Row with index {index} not found in update_order_status.")
             
         time_now = self._get_epoch_time()
-
+        profits = {
+            'realized': 0.0,
+            'unrealized': 0.0,
+            'converted': 0.0,
+            'total': 0.0
+        }
         if side == 'buy' and filled_qty > 0:
             self.logger.debug(f"Distributing {filled_qty} shares to rows above {index}")
             while filled_qty > 0:
@@ -134,6 +139,8 @@ class CSVService(CSVCore):
                             current_row['unrealized_profit'] = round(existing_unrealized + new_unrealized, 2)
                             self.logger.debug(f"After unrealized profit update, new: {current_row['unrealized_profit']}")
                             current_row['last_action'] = time_now
+                            profits['unrealized'] += new_unrealized
+                            profits['total'] += new_unrealized
                     if filled_qty == 0:
                         break
 
@@ -156,6 +163,9 @@ class CSVService(CSVCore):
                             current_row['profit'] = round(prev_unrealised_profit + sale_profit+previous_profit,2)
                             self.logger.debug(f"After sale, profit: {current_row['profit']}")
                             current_row['last_action'] = time_now
+                            profits['realized'] += sale_profit
+                            profits['converted'] += prev_unrealised_profit
+                            profits['total'] += sale_profit + prev_unrealised_profit
                     if filled_qty  == 0:
                         self.logger.debug(f"Filled quantity reached 0. Selling complete.")
                         break  
@@ -164,3 +174,4 @@ class CSVService(CSVCore):
         row['last_action'] = time_now
 
         self.save()
+        return profits

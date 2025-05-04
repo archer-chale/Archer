@@ -63,6 +63,7 @@ class TestScaleTFractionalOrders(unittest.TestCase):
         )
 
         # Create and start the consumer thread
+        cls.decision_maker.publisher = Mock()
         cls.consumer_thread = threading.Thread(target=cls._consume_actions_thread)
         cls.consumer_thread.daemon = True  # Allow the thread to exit when the main thread exits
         cls.consumer_thread.start()
