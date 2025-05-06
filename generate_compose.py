@@ -98,6 +98,7 @@ services = {
         "volumes": [
             "./data/performance:/app/data/performance",
         ],
+        "depends_on": ["redis"],
         "restart": "no",
         "logging": {
             "driver": "json-file",
