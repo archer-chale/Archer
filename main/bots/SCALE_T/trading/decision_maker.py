@@ -3,7 +3,7 @@ import threading
 import asyncio
 import sys
 from typing import Tuple
-from datetime import datetime as dt
+from datetime import datetime as dt, timezone
 import time
 
 from alpaca.trading.enums import OrderStatus, OrderType, OrderSide
@@ -104,6 +104,8 @@ class DecisionMaker:
             self.logger.info("Order filled and handled successfully. Checking share count.")
             self._check_share_count()
 
+            profits['symbol'] = self.csv_service.ticker
+            profits['timestamp'] = dt.now(timezone.utc).isoformat()
             self.publisher.publish(CHANNELS.PROFIT_REPORT, message_data=profits, sender='scale_t')
             self.logger.info(f"Profit report published: {profits}")
 
@@ -197,7 +199,7 @@ class DecisionMaker:
                 latest_order = self.alpaca_interface.get_order_by_id(self.pending_order.id)
                 
                 # Create a proper TradeUpdate object that matches what comes from the Alpaca stream
-                trade_update = TradeUpdate(order=latest_order, event=MessageType.ORDER_UPDATE.value, timestamp=dt.now(dt.timezone.utc))
+                trade_update = TradeUpdate(order=latest_order, event=MessageType.ORDER_UPDATE.value, timestamp=dt.now(timezone.utc))
                 
                 # Queue the update just like the websocket would
                 self.action_queue.put({'type': MessageType.ORDER_UPDATE, 'data': trade_update, 'source': 'manual'})

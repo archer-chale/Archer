@@ -9,5 +9,5 @@ COPY main/utils/redis ./main/utils/redis
 COPY main/performance ./main/performance
 
 # hold the container open
-CMD ["tail", "-f", "/dev/null"]
-# ENTRYPOINT [ "python", "-m", "main.performance.main" ]
+# CMD ["tail", "-f", "/dev/null"]
+ENTRYPOINT [ "python", "-m", "main.performance.main" ]

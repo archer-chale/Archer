@@ -1,4 +1,4 @@
-from datetime import datetime as dt
+from datetime import datetime as dt, timezone
 import os
 import json
 import logging
@@ -48,12 +48,13 @@ class DailyProfitManager:
         self.profit_content = None
         self.current_day = None
         self.current_profit_path = None
+        self.logger = logging.getLogger(__name__)
 
     def get_complete_profit_path(self):
         """
         Get the complete path for the profit file.
         """
-        current_date_utc = dt.now(dt.timezone.utc)
+        current_date_utc = dt.now(timezone.utc)
         # Convert date to string format
         date_str = current_date_utc.strftime('%Y-%m-%d')
         year = current_date_utc.strftime('%Y')
@@ -63,7 +64,7 @@ class DailyProfitManager:
     
     def handle_new_day(self):
         # Check if current day has a file.
-        current_date_utc = dt.now(dt.timezone.utc).date()
+        current_date_utc = dt.now(timezone.utc).date()
         # setup the day file if it doesn't exist, if it does, load the content
         self.current_profit_path = self.get_complete_profit_path()
         if not os.path.exists(self.current_profit_path):
@@ -80,43 +81,45 @@ class DailyProfitManager:
         """
         Calculate the profit for a given account message.
         """
+        self.logger.info(f"Processing profit message: {message}")
         # Get todays date
-        current_date_utc = dt.now(dt.timezone.utc).date()
+        current_date_utc = dt.now(timezone.utc).date()
         # Check if the current date is different from the last processed date
         if self.current_day != current_date_utc:
             # If so, handle the new day
             self.handle_new_day()
 
         # Extract the relevant information from the message
-        symbol = message.get("symbol")
-        total = message.get("total")
-        unrealized = message.get("unrealized")
-        realized = message.get("realized")
-        converted = message.get("converted")
-        timestamp = message.get("timestamp")
+        data = message.get("data")
+        symbol = data.get("symbol")
+        total = data.get("total")
+        unrealized = data.get("unrealized")
+        realized = data.get("realized")
+        converted = data.get("converted")
+        timestamp = data.get("timestamp")
         # Add the separate sections to the profit content
         if symbol not in self.profit_content:
             self.profit_content[symbol] = {
-                "total": total,
-                "unrealized": unrealized,
-                "realized": realized,
-                "converted": converted,
+                "total": round(total, 2),
+                "unrealized": round(unrealized, 2),
+                "realized": round(realized, 2),
+                "converted": round(converted, 2),
                 "timestamp": timestamp
             }
         else:
             # Update the existing entry
-            self.profit_content[symbol]["total"] += total
-            self.profit_content[symbol]["unrealized"] += unrealized
-            self.profit_content[symbol]["realized"] += realized
-            self.profit_content[symbol]["converted"] += converted
+            self.profit_content[symbol]["total"] = round(self.profit_content[symbol]["total"] + total, 2)
+            self.profit_content[symbol]["unrealized"] = round(self.profit_content[symbol]["unrealized"] + unrealized, 2)
+            self.profit_content[symbol]["realized"] = round(self.profit_content[symbol]["realized"] + realized, 2)
+            self.profit_content[symbol]["converted"] = round(self.profit_content[symbol]["converted"] + converted, 2)
             self.profit_content[symbol]["timestamp"] = timestamp
         
         aggregate = self.profit_content.get("aggregate", {})
         # Add the aggregate section to the profit content
-        aggregate['total'] = aggregate.get("total", 0) + total
-        aggregate['unrealized'] = aggregate.get("unrealized", 0) + unrealized
-        aggregate['realized'] = aggregate.get("realized", 0) + realized
-        aggregate['converted'] = aggregate.get("converted", 0) + converted
+        aggregate['total'] = round(aggregate.get("total", 0) + total, 2)
+        aggregate['unrealized'] = round(aggregate.get("unrealized", 0) + unrealized, 2)
+        aggregate['realized'] = round(aggregate.get("realized", 0) + realized, 2)
+        aggregate['converted'] = round(aggregate.get("converted", 0) + converted, 2)
         aggregate['timestamp'] = timestamp
         # Update the profit content with the aggregate
         self.profit_content["aggregate"] = aggregate
