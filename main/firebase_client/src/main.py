@@ -83,6 +83,13 @@ def main():
     # Load tickers from config file
     tickers = load_tickers()
     
+    # Check for Firebase database URL in environment
+    firebase_db_url = os.environ.get("FIREBASE_DATABASE_URL")
+    if firebase_db_url:
+        logger.info(f"Using Firebase database URL from environment: {firebase_db_url}")
+    else:
+        logger.info("No Firebase database URL found in environment, will use default based on project_id")
+        
     # Create Firebase client
     firebase_client = FirebaseClient(service_account_path="configs/adminsdk.json")
     

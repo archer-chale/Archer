@@ -2,6 +2,7 @@
 import os
 import json
 import time
+from datetime import datetime
 from typing import Dict, Any, Optional
 import logging
 
@@ -54,17 +55,23 @@ class FirebaseClient:
             cred = credentials.Certificate(self.service_account_path)
             
             # Initialize the app with a database URL
-            # The database URL is structured as: https://<database-name>.firebaseio.com/
-            # We'll extract the project ID from the credentials to form the URL
+            # The database URL should be in format: https://<project-id>.firebaseio.com/
+            # We'll try to read it from environment variables first, then use a default
             try:
-                with open(self.service_account_path, 'r') as f:
-                    service_account_info = json.load(f)
-                project_id = service_account_info.get('project_id')
-                if not project_id:
-                    self.logger.error("Project ID not found in service account file")
-                    return False
-                    
-                database_url = f"https://{project_id}.firebaseio.com/"
+                # First try to get from environment
+                database_url = os.environ.get("FIREBASE_DATABASE_URL")
+                
+                # If not in environment, read project_id from service account and form the URL
+                if not database_url:
+                    with open(self.service_account_path, 'r') as f:
+                        service_account_info = json.load(f)
+                    project_id = service_account_info.get('project_id')
+                    if not project_id:
+                        self.logger.error("Project ID not found in service account file")
+                        return False
+                        
+                    database_url = f"https://{project_id}-default-rtdb.firebaseio.com/"
+                
                 self.logger.info(f"Using database URL: {database_url}")
                 self.firebase_app = firebase_admin.initialize_app(cred, {
                     'databaseURL': database_url
@@ -118,9 +125,17 @@ class FirebaseClient:
             # Update the cache with new price
             self.tickers_cache[cache_key] = current_price
             
-            # Update in Firebase - path will be /tickers/{symbol}/current_price
-            ticker_ref = self.db_ref.child('tickers').child(symbol)
-            ticker_ref.child('current_price').set(current_price)
+            # Update in Firebase - path will be /services/{symbol}
+            # This matches the path structure used in the old working code
+            service_ref = self.db_ref.child('services').child(symbol)
+            
+            # Update price in the services structure
+            service_ref.update({
+                'price': current_price['price'],
+                'volume': current_price['volume'],
+                'timestamp': current_price['timestamp'],
+                'last_updated': datetime.now().isoformat()
+            })
             
             self.logger.info(f"Updated price for {symbol}: {current_price['price']}")
             return True
@@ -163,9 +178,9 @@ class FirebaseClient:
                 "position_qty": order_data.get("order_data", {}).get("position_qty", "0")
             }
             
-            # Store in Firebase - path will be /tickers/{symbol}/orders/{order_id}
-            ticker_ref = self.db_ref.child('tickers').child(symbol)
-            ticker_ref.child('orders').child(order_id).set(formatted_order)
+            # Store in Firebase - path will be /services/{symbol}/orders/{order_id}
+            service_ref = self.db_ref.child('services').child(symbol)
+            service_ref.child('orders').child(order_id).set(formatted_order)
             
             self.logger.info(f"Stored order for {symbol}: {order_id} (event: {event})")
             return True
@@ -173,6 +188,41 @@ class FirebaseClient:
         except Exception as e:
             self.logger.error(f"Error storing order for {symbol}: {e}")
             return False
+    
+    def get_price(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """
+        Get the current price data for a ticker
+        
+        Args:
+            symbol: The ticker symbol (e.g., AAPL)
+            
+        Returns:
+            Optional[Dict[str, Any]]: Current price data or None if not found/error
+        """
+        if not self.db_ref:
+            self.logger.error("Cannot get price: Firebase connection not established")
+            return None
+            
+        try:
+            # Get from Firebase - path will be /services/{symbol}
+            service_ref = self.db_ref.child('services').child(symbol)
+            service_data = service_ref.get()
+            
+            if service_data:
+                # Format the data to match our expected structure
+                current_price = {
+                    'price': service_data.get('price'),
+                    'volume': service_data.get('volume'),
+                    'timestamp': service_data.get('timestamp')
+                }
+                return current_price
+            else:
+                self.logger.warning(f"No data found for symbol {symbol}")
+                return None
+            
+        except Exception as e:
+            self.logger.error(f"Error getting price for {symbol}: {e}")
+            return None
     
     def close(self) -> None:
         """
