@@ -1,6 +1,6 @@
 # Redis Subscriber Component
 import time
-from typing import List, Dict, Any, Callable
+from typing import List, Dict, Any, Callable, Optional
 import sys
 import os
 
@@ -19,6 +19,7 @@ try:
         RedisSubscriber, RedisPublisher, CHANNELS, 
         REDIS_HOST_DOCKER, REDIS_PORT, REDIS_DB
     )
+    from firebase_client import FirebaseClient
 except ImportError:
     # For local development, adjust this path if needed
     sys.path.append(os.path.abspath('../..'))
@@ -26,19 +27,25 @@ except ImportError:
         RedisSubscriber, RedisPublisher, CHANNELS, 
         REDIS_HOST_DOCKER, REDIS_PORT, REDIS_DB
     )
+    try:
+        from firebase_client import FirebaseClient
+    except ImportError:
+        from .firebase_client import FirebaseClient
 
 class FirebaseRedisSubscriber:
-    def __init__(self, tickers: List[str]):
+    def __init__(self, tickers: List[str], firebase_client: Optional[FirebaseClient] = None):
         """
         Initialize the FirebaseRedisSubscriber
         
         Args:
             tickers: List of tickers to subscribe to
+            firebase_client: Firebase client for storing data
         """
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info(f"Initializing FirebaseRedisSubscriber for {len(tickers)} tickers")
         self.tickers = tickers
         self.subscriber = None
+        self.firebase_client = firebase_client
         self.max_retries = 5
         self.retry_delay = 3  # seconds
         
@@ -130,6 +137,19 @@ class FirebaseRedisSubscriber:
         self.logger.info(f"PRICE UPDATE [{timestamp}] from {sender}")
         self.logger.info(f"  Symbol: {symbol}, Price: {price}, Volume: {volume}")
         self.logger.debug(f"  Raw data: {data}")
+        
+        # Update price in Firebase if client is available
+        if self.firebase_client:
+            price_data = {
+                "price": price,
+                "volume": volume,
+                "timestamp": data.get('timestamp', timestamp)
+            }
+            success = self.firebase_client.update_price(symbol, price_data)
+            if success:
+                self.logger.debug(f"Successfully updated price for {symbol} in Firebase")
+            else:
+                self.logger.warning(f"Failed to update price for {symbol} in Firebase")
     
     def _handle_order_update(self, data: Dict[str, Any], timestamp: str, sender: str) -> None:
         """
@@ -147,6 +167,14 @@ class FirebaseRedisSubscriber:
         self.logger.info(f"ORDER UPDATE [{timestamp}] from {sender}")
         self.logger.info(f"  Symbol: {symbol}, Event: {event}")
         self.logger.debug(f"  Raw data: {data}")
+        
+        # Store order in Firebase if client is available
+        if self.firebase_client:
+            success = self.firebase_client.store_order(symbol, data)
+            if success:
+                self.logger.debug(f"Successfully stored order for {symbol} in Firebase")
+            else:
+                self.logger.warning(f"Failed to store order for {symbol} in Firebase")
         
     def start_listening(self) -> None:
         """

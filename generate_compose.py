@@ -92,7 +92,7 @@ services = {
         },
         "container_name": "firebase_client",
         "restart": "no",
-        "depends_on": ["redis"],
+        "depends_on": ["alpaca_broker"],
         "logging": {
             "driver": "json-file",
             "options": {
@@ -116,7 +116,7 @@ for ticker in tickers:
             f"./data/SCALE_T/ticker_data/paper/{ticker.upper()}.csv:/app/data/ticker_data/paper/{ticker.upper()}.csv",
         ],
         "restart": "no",
-        "depends_on": ["redis"],
+        "depends_on": ["alpaca_broker", "firebase_client"],
         "logging": {
             "driver": "json-file",
             "options": {

@@ -20,9 +20,11 @@ logger = logging.getLogger("FirebaseClientService")
 # Local import when running as a package
 try:
     from .redis_subscriber import FirebaseRedisSubscriber
+    from .firebase_client import FirebaseClient
 # Fallback for running the file directly
 except ImportError:
     from redis_subscriber import FirebaseRedisSubscriber
+    from firebase_client import FirebaseClient
 
 def load_tickers():
     """
@@ -76,13 +78,31 @@ def main():
     """
     Main application entry point
     """
-    logger.info("Starting Firebase Client Service (Redis Logging Phase)")
+    logger.info("Starting Firebase Client Service")
     
     # Load tickers from config file
     tickers = load_tickers()
     
-    # Create subscriber
-    subscriber = FirebaseRedisSubscriber(tickers)
+    # Check for Firebase database URL in environment
+    firebase_db_url = os.environ.get("FIREBASE_DATABASE_URL")
+    if firebase_db_url:
+        logger.info(f"Using Firebase database URL from environment: {firebase_db_url}")
+    else:
+        logger.info("No Firebase database URL found in environment, will use default based on project_id")
+        
+    # Create Firebase client
+    firebase_client = FirebaseClient(service_account_path="configs/adminsdk.json")
+    
+    # Connect to Firebase
+    firebase_connected = firebase_client.connect()
+    if not firebase_connected:
+        logger.warning("Failed to connect to Firebase. Continuing with Redis-only mode...")
+        firebase_client = None
+    else:
+        logger.info("Successfully connected to Firebase Realtime Database")
+    
+    # Create subscriber with Firebase client
+    subscriber = FirebaseRedisSubscriber(tickers, firebase_client)
     
     # Connect to Redis
     if not subscriber.connect():
@@ -106,6 +126,8 @@ def main():
         logger.error(f"Error in main loop: {e}")
     finally:
         subscriber.close()
+        if firebase_client:
+            firebase_client.close()
         logger.info("Firebase Client Service stopped")
 
 if __name__ == "__main__":
