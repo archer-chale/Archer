@@ -1,0 +1,242 @@
+What is the user story ?
+- As a user I should be able to view the prices and orders of the stocks from the firebase real time database
+
+Why do we want to solve this user story ?
+- We want to be able to view the prices and orders of the stocks from the firebase real time database, this way the user will be make decisions based on the real time data
+
+Resources
+- stories\pd\firebase-client-service\userstory.txt - this is our user story for creating a docker service to update the real time database
+- stories\pd\firebase-client-service\implementation_design.md - this is the implementation design for the docker service
+- stories\pd\firebase-client-service\implementation_checklist.md - this is the implementation checklist for the docker service
+- main\firebase_client\src\firebase_client.py - this is the firebase service function that updates the real time database
+
+This is the structure of the real time database
+├── services/
+│   ├── AAPL/
+│   │   │   price: "150.25", 
+│   │   │   volume: "10000", 
+│   │   │   timestamp: "1619712345.678" 
+│   │   │   last_updated: "1619712345.678"
+│   │   └── orders/
+│   │       └── order-id-123: { 
+│   │           event: "fill",
+│   │           timestamp: "1619712345.678",
+│   │           order: {...}
+│   │       }
+
+Goals
+- Goal is to have a frontend that can view the prices and orders of the stocks from the firebase real time database
+
+Implementation
+- client\src\pages\Dashboard\index.tsx - lets update page to display the prices and orders, make the ui modern and responsive
+
+Which specific stocks/symbols do you want to monitor in the Dashboard? Is it just AAPL as shown in the example, or multiple symbols?
+- All of the symbols that are coming in
+For the Dashboard UI, do you have any specific design preferences (like cards, tables, charts) for displaying:
+Let's do cards for now that can perhaps expand, make it very simple for now as the ui will mostly change in the future
+Stock prices and volume
+Order information
+Should users be able to filter or search for specific stocks/orders in the Dashboard?
+- No
+Do you need real-time updates on the frontend when data changes in Firebase, or is periodic refreshing sufficient?
+- We are already getting the data on the frontend
+I notice you have message.service.firebase.ts open. Is this where you want to implement the Firebase data fetching logic for the Dashboard?
+- No
+
+
+
+_+_+_
+We are already getting the data from here - client\src\service\firebase\firebase-endpoint.service.ts, we will need to update the interface to match the data we are getting
+
+[
+    {
+        "ticker": "AAPL",
+        "last_updated": "2025-05-06T14:39:11.786624",
+        "orders": {
+            "31b464df-0598-4e6b-ad9a-adbcf198a429": {
+                "event": "fill",
+                "order": {
+                    "asset_class": "us_equity",
+                    "asset_id": "b0b6dd9d-8b9b-48a9-ba46-b9d54906e415",
+                    "client_order_id": "ad01112b-3e01-4e97-88b4-f66d0570224b",
+                    "created_at": "2025-05-06 14:20:41.612062+00:00",
+                    "extended_hours": false,
+                    "filled_at": "2025-05-06 14:20:41.616427+00:00",
+                    "filled_avg_price": "199.192",
+                    "filled_qty": "0.3",
+                    "id": "31b464df-0598-4e6b-ad9a-adbcf198a429",
+                    "order_class": "simple",
+                    "order_type": "market",
+                    "qty": "0.3",
+                    "side": "sell",
+                    "source": "alpaca",
+                    "status": "filled",
+                    "submitted_at": "2025-05-06 14:20:41.612062+00:00",
+                    "symbol": "AAPL",
+                    "time_in_force": "day",
+                    "updated_at": "2025-05-06 14:20:41.617256+00:00"
+                },
+                "position_qty": "3.11",
+                "price": "199.192",
+                "qty": "0.3",
+                "timestamp": "2025-05-06 14:20:41.616427+00:00"
+            }
+        },
+        "price": "198.07",
+        "timestamp": "2025-05-06 14:39:11.760112+00:00"
+    },
+    {
+        "ticker": "GOOGL",
+        "last_updated": "2025-05-06T14:39:08.543463",
+        "price": "163.66",
+        "timestamp": "2025-05-06 14:39:08.441856+00:00"
+    },
+    {
+        "ticker": "PLTR",
+        "last_updated": "2025-05-06T14:39:14.092841",
+        "orders": {
+            "2761b11c-43f9-41ec-b858-ace4a3703749": {
+                "event": "fill",
+                "order": {
+                    "asset_class": "us_equity",
+                    "asset_id": "80e04a93-e1a8-4503-ab61-2ef1992650b4",
+                    "client_order_id": "1d9eb4d5-4439-4116-b10a-55ac00edadbb",
+                    "created_at": "2025-05-06 14:20:47.011808+00:00",
+                    "extended_hours": false,
+                    "filled_at": "2025-05-06 14:20:47.016844+00:00",
+                    "filled_avg_price": "106.492",
+                    "filled_qty": "0.4",
+                    "id": "2761b11c-43f9-41ec-b858-ace4a3703749",
+                    "order_class": "simple",
+                    "order_type": "market",
+                    "qty": "0.4",
+                    "side": "sell",
+                    "source": "alpaca",
+                    "status": "filled",
+                    "submitted_at": "2025-05-06 14:20:47.011808+00:00",
+                    "symbol": "PLTR",
+                    "time_in_force": "day",
+                    "updated_at": "2025-05-06 14:20:47.017646+00:00"
+                },
+                "position_qty": "8.1",
+                "price": "106.492",
+                "qty": "0.4",
+                "timestamp": "2025-05-06 14:20:47.016844+00:00"
+            },
+            "3fe579f3-c4f7-46f5-8244-490a3b262999": {
+                "event": "fill",
+                "order": {
+                    "asset_class": "us_equity",
+                    "asset_id": "80e04a93-e1a8-4503-ab61-2ef1992650b4",
+                    "client_order_id": "083c4bda-33b7-4925-adbc-33915ba7326b",
+                    "created_at": "2025-05-06 14:14:36.495991+00:00",
+                    "extended_hours": false,
+                    "filled_at": "2025-05-06 14:14:36.500745+00:00",
+                    "filled_avg_price": "105.908",
+                    "filled_qty": "0.4",
+                    "id": "3fe579f3-c4f7-46f5-8244-490a3b262999",
+                    "order_class": "simple",
+                    "order_type": "market",
+                    "qty": "0.4",
+                    "side": "buy",
+                    "source": "alpaca",
+                    "status": "filled",
+                    "submitted_at": "2025-05-06 14:14:36.495991+00:00",
+                    "symbol": "PLTR",
+                    "time_in_force": "day",
+                    "updated_at": "2025-05-06 14:14:36.501596+00:00"
+                },
+                "position_qty": "8.5",
+                "price": "105.908",
+                "qty": "0.4",
+                "timestamp": "2025-05-06 14:14:36.500745+00:00"
+            },
+            "c26d1193-e9c6-49cb-a402-82d235c20145": {
+                "event": "fill",
+                "order": {
+                    "asset_class": "us_equity",
+                    "asset_id": "80e04a93-e1a8-4503-ab61-2ef1992650b4",
+                    "client_order_id": "d4030ada-21d8-447e-8428-e1f77e8b34f6",
+                    "created_at": "2025-05-06 14:24:06.115029+00:00",
+                    "extended_hours": false,
+                    "filled_at": "2025-05-06 14:24:06.118738+00:00",
+                    "filled_avg_price": "107.154",
+                    "filled_qty": "0.5",
+                    "id": "c26d1193-e9c6-49cb-a402-82d235c20145",
+                    "order_class": "simple",
+                    "order_type": "market",
+                    "qty": "0.5",
+                    "side": "sell",
+                    "source": "alpaca",
+                    "status": "filled",
+                    "submitted_at": "2025-05-06 14:24:06.115029+00:00",
+                    "symbol": "PLTR",
+                    "time_in_force": "day",
+                    "updated_at": "2025-05-06 14:24:06.119602+00:00"
+                },
+                "position_qty": "7.6",
+                "price": "107.154",
+                "qty": "0.5",
+                "timestamp": "2025-05-06 14:24:06.118738+00:00"
+            },
+            "d8823420-5dfd-4fd1-a23e-4c66908c1536": {
+                "event": "fill",
+                "order": {
+                    "asset_class": "us_equity",
+                    "asset_id": "80e04a93-e1a8-4503-ab61-2ef1992650b4",
+                    "client_order_id": "f87c30e9-9c0b-4dcd-9d72-af639b6060c7",
+                    "created_at": "2025-05-06 14:14:54.056634+00:00",
+                    "extended_hours": false,
+                    "filled_at": "2025-05-06 14:14:54.061830+00:00",
+                    "filled_avg_price": "105.368",
+                    "filled_qty": "0.5",
+                    "id": "d8823420-5dfd-4fd1-a23e-4c66908c1536",
+                    "order_class": "simple",
+                    "order_type": "market",
+                    "qty": "0.5",
+                    "side": "buy",
+                    "source": "alpaca",
+                    "status": "filled",
+                    "submitted_at": "2025-05-06 14:14:54.056634+00:00",
+                    "symbol": "PLTR",
+                    "time_in_force": "day",
+                    "updated_at": "2025-05-06 14:14:54.062780+00:00"
+                },
+                "position_qty": "9.0",
+                "price": "105.368",
+                "qty": "0.5",
+                "timestamp": "2025-05-06 14:14:54.061830+00:00"
+            },
+            "fd4ec67f-5539-4165-9a32-2658d4603cb4": {
+                "event": "fill",
+                "order": {
+                    "asset_class": "us_equity",
+                    "asset_id": "80e04a93-e1a8-4503-ab61-2ef1992650b4",
+                    "client_order_id": "b04e1736-990a-4441-864d-29a3a3666859",
+                    "created_at": "2025-05-06 14:16:55.750061+00:00",
+                    "extended_hours": false,
+                    "filled_at": "2025-05-06 14:16:55.754106+00:00",
+                    "filled_avg_price": "105.942",
+                    "filled_qty": "0.5",
+                    "id": "fd4ec67f-5539-4165-9a32-2658d4603cb4",
+                    "order_class": "simple",
+                    "order_type": "market",
+                    "qty": "0.5",
+                    "side": "sell",
+                    "source": "alpaca",
+                    "status": "filled",
+                    "submitted_at": "2025-05-06 14:16:55.750061+00:00",
+                    "symbol": "PLTR",
+                    "time_in_force": "day",
+                    "updated_at": "2025-05-06 14:16:55.754985+00:00"
+                },
+                "position_qty": "8.5",
+                "price": "105.942",
+                "qty": "0.5",
+                "timestamp": "2025-05-06 14:16:55.754106+00:00"
+            }
+        },
+        "price": "107.0",
+        "timestamp": "2025-05-06 14:39:14.048531+00:00"
+    }
+]
