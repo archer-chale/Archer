@@ -12,6 +12,7 @@ export interface Service {
   ticker: string;
   status: 'running' | 'paused' | 'stopped';
   bots: Record<string, Bot>;
+  [key: string]: any;
 }
 
 export interface Message {
