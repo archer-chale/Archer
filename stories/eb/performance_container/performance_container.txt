@@ -1,0 +1,22 @@
+### Overview
+
+The goal of performance container is to read data from bots and use this to 
+calculate performance stats and save them as local data and also publish to 
+redis to be consumed by clients.
+
+Type of data (evolving)
+- Profit data(each trade)
+- - > unrealized Profit
+- - > realized profit
+
+Tasks
+1. Aggregate profit data
+2. Calculate yield percentages(Future TODO)
+
+Task 1: Aggregate data
+->Define topic for collecting each trade
+->Define container application template
+->Listens to right topic and handles profit as expected
+---> defines the way profit data should be sent over topic
+->ScaleT implementation of publishing each profit data
+->End to end test flow
