@@ -26,6 +26,7 @@ todos2.todo
 todos.todo
 trashCan/
 data/ticker_data/
+data/performance/
 data/SCALE_T/*
 !data/SCALE_T/templates
 

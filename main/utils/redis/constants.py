@@ -12,6 +12,7 @@ REDIS_DB = 0
 class CHANNELS:
     """Name for channel used to register bots with the broker."""
     BROKER_REGISTRATION = "BROKER_REGISTRATION"
+    PROFIT_REPORT = "PROFIT_REPORT"
 
     @staticmethod
     def get_ticker_channel(ticker: str) -> str:
@@ -52,6 +53,20 @@ class MESSAGE_SCHEMAS:
             "action": ["subscribe", "unsubscribe"]
         }
     }
+    # Schema for the profit report channel
+    PROFIT_REPORT = {
+        "required_fields": ["symbol", "total", "unrealized", "realized", "timestamp"],
+        "optional_fields": [],
+        "field_types": {
+            "total": (int, float, str), # Allow string for Decimal conversion downstream
+            "unrealized": (int, float, str), 
+            "realized": (int, float, str), 
+            "converted": (int, float, str), 
+            "timestamp": str, # ISO format string preferred
+            "symbol": str
+        },
+        "allowed_values": {}
+    }
 
     # Combined schema for dynamic ticker update channels
     TICKER_UPDATES = {
@@ -76,6 +91,8 @@ class MESSAGE_SCHEMAS:
         """Get the schema based on the channel name (handles dynamic ticker channels)."""
         if channel_name == CHANNELS.BROKER_REGISTRATION:
             return cls.BROKER_REGISTRATION
+        elif channel_name == CHANNELS.PROFIT_REPORT:
+            return cls.PROFIT_REPORT
         elif channel_name.startswith("TICKER_UPDATES_"):
             return cls.TICKER_UPDATES
         else:
