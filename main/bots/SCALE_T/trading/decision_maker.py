@@ -3,7 +3,7 @@ import threading
 import asyncio
 import sys
 from typing import Tuple
-from datetime import datetime as dt
+from datetime import datetime as dt, timezone
 import time
 
 from alpaca.trading.enums import OrderStatus, OrderType, OrderSide
@@ -32,6 +32,8 @@ class DecisionMaker:
         self.csv_service = csv_service
         self.alpaca_interface = alpaca_interface
         self.action_queue = queue.Queue()
+        self.producer_thread = None
+        self.publisher = None
         self.last_manual_update_time = 0  # Timestamp of last manual order update
         self.manual_update_interval_sec = 10
 
@@ -93,7 +95,7 @@ class DecisionMaker:
             self.logger.info("Order filled")
             self.logger.info(f"Order status: FILLED. Filled quantity: {filled_qty}, Filled average price: {filled_avg_price}, Order side: {side}")
 
-            self.csv_service.update_order_status(
+            profits = self.csv_service.update_order_status(
                 self.pending_order_index, filled_qty, filled_avg_price, side
             )
             self.pending_order = None
@@ -101,6 +103,11 @@ class DecisionMaker:
             self.order_state = OrderState.NONE
             self.logger.info("Order filled and handled successfully. Checking share count.")
             self._check_share_count()
+
+            profits['symbol'] = self.csv_service.ticker
+            profits['timestamp'] = dt.now(timezone.utc).isoformat()
+            self.publisher.publish(CHANNELS.PROFIT_REPORT, message_data=profits, sender='scale_t')
+            self.logger.info(f"Profit report published: {profits}")
 
         elif status in (OrderStatus.CANCELED, OrderStatus.EXPIRED):
             self.logger.info("Order cancelled or expired")
@@ -192,7 +199,7 @@ class DecisionMaker:
                 latest_order = self.alpaca_interface.get_order_by_id(self.pending_order.id)
                 
                 # Create a proper TradeUpdate object that matches what comes from the Alpaca stream
-                trade_update = TradeUpdate(order=latest_order, event=MessageType.ORDER_UPDATE.value, timestamp=dt.now(dt.timezone.utc))
+                trade_update = TradeUpdate(order=latest_order, event=MessageType.ORDER_UPDATE.value, timestamp=dt.now(timezone.utc))
                 
                 # Queue the update just like the websocket would
                 self.action_queue.put({'type': MessageType.ORDER_UPDATE, 'data': trade_update, 'source': 'manual'})
@@ -361,6 +368,9 @@ class DecisionMaker:
             return
 
     def consume_actions(self):
+        if self.publisher is None:
+            self.logger.error("Publisher is not initialized. Cannot consume actions. Quitting.")
+            return
         while True:
             message = self.action_queue.get()
             if message['type'] == MessageType.ORDER_UPDATE:
@@ -374,23 +384,22 @@ class DecisionMaker:
             self.action_queue.task_done()
 
     def launch_action_producer_threads(self):
-        thread1 = threading.Thread(target=self._subscribe_redis_producer, daemon=True)
-        thread1.start()
+        self.producer_thread = threading.Thread(target=self._subscribe_redis_producer, daemon=True)
+        self.producer_thread.start()
         self.logger.info("Started action producer threads.")
 
     def _subscribe_redis_producer(self):
         # Need to add price subscriber here as well
         # Create a publisher and publish subscribe to price for ticker
-        publisher = RedisPublisher(host=REDIS_HOST_DOCKER, port=REDIS_PORT, db=REDIS_DB)
+        self.publisher = RedisPublisher(host=REDIS_HOST_DOCKER, port=REDIS_PORT, db=REDIS_DB)
         # Publish to the Broker channel
         message = {
             'action': 'subscribe',
             'ticker': self.csv_service.ticker
         }
-        publisher.publish(CHANNELS.BROKER_REGISTRATION, message_data=message, sender='scale_t')
+        self.publisher.publish(CHANNELS.BROKER_REGISTRATION, message_data=message, sender='scale_t')
         self.logger.info(f"Registered to channel {CHANNELS.BROKER_REGISTRATION} for ticker {self.csv_service.ticker}")
         # Close publisher after subscribing
-        publisher.close()
         # create a subscriber
         subscriber = RedisSubscriber(host=REDIS_HOST_DOCKER, port=REDIS_PORT, db=REDIS_DB)
         # generate the name of the channel
