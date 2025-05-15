@@ -78,12 +78,12 @@ APCA_API_BASE_URL=https://paper-api.alpaca.markets
 python generate_compose.py
 ```
 
-This will create a `docker-compose.yml` file configured with all necessary services.
+This will create a `docker-compose.generated.yml` file configured with all necessary services.
 
 ### Step 4: Start the Trading Infrastructure
 
 ```bash
-docker-compose up -d
+docker-compose -f docker-compose.generated.yml up --build 
 ```
 
 To run only specific services:
