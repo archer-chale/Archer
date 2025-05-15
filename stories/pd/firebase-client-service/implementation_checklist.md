@@ -75,18 +75,18 @@ Should it be configurable via command-line arguments?
 ## Phase 2: Firebase Integration
 
 ### 5. Firebase Client Component (`src/firebase_client.py`)
-- [ ] Create `firebase_client.py` file
-- [ ] Set up Firebase Admin SDK initialization
-- [ ] Implement data structure as outlined in design document
-- [ ] Create methods to update price data with change detection
-- [ ] Create methods to store order data
-- [ ] Add error handling and reconnection logic
+- [x] Create `firebase_client.py` file
+- [x] Set up Firebase Admin SDK initialization
+- [x] Implement data structure as outlined in design document
+- [x] Create methods to update price data with change detection
+- [x] Create methods to store order data
+- [x] Add error handling and reconnection logic
 
 ### 6. Update Main Application
-- [ ] Update `requirements.txt` to include Firebase Admin SDK
-- [ ] Initialize and connect Firebase client in `main.py`
-- [ ] Modify message handling to send data to Firebase after logging
-- [ ] Add configuration options for Firebase connectivity
+- [x] Update `requirements.txt` to include Firebase Admin SDK
+- [x] Initialize and connect Firebase client in `main.py`
+- [x] Modify message handling to send data to Firebase after logging
+- [x] Add configuration options for Firebase connectivity
 
 ## Phase 3: Containerization
 
