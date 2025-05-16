@@ -189,41 +189,6 @@ class FirebaseClient:
             self.logger.error(f"Error storing order for {symbol}: {e}")
             return False
     
-    def get_price(self, symbol: str) -> Optional[Dict[str, Any]]:
-        """
-        Get the current price data for a ticker
-        
-        Args:
-            symbol: The ticker symbol (e.g., AAPL)
-            
-        Returns:
-            Optional[Dict[str, Any]]: Current price data or None if not found/error
-        """
-        if not self.db_ref:
-            self.logger.error("Cannot get price: Firebase connection not established")
-            return None
-            
-        try:
-            # Get from Firebase - path will be /services/{symbol}
-            service_ref = self.db_ref.child('services').child(symbol)
-            service_data = service_ref.get()
-            
-            if service_data:
-                # Format the data to match our expected structure
-                current_price = {
-                    'price': service_data.get('price'),
-                    'volume': service_data.get('volume'),
-                    'timestamp': service_data.get('timestamp')
-                }
-                return current_price
-            else:
-                self.logger.warning(f"No data found for symbol {symbol}")
-                return None
-            
-        except Exception as e:
-            self.logger.error(f"Error getting price for {symbol}: {e}")
-            return None
-    
     def close(self) -> None:
         """
         Close the Firebase connection
