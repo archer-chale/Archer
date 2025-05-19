@@ -1,9 +1,7 @@
 import { useServicesStore } from './services.store';
-import { useMessagesStore } from './message.store';
 
 // Export all stores
 export { useServicesStore };
-export { useMessagesStore };
 
 // Add utility functions for working with both stores
 
@@ -12,10 +10,10 @@ export { useMessagesStore };
  * Useful for populating target selection dropdowns
  */
 export const getActiveBotOptions = () => {
-  const { getActiveBots } = useServicesStore.getState();
+  const { getServices } = useServicesStore.getState();
   
-  const bots = getActiveBots();
-  return bots.map(bot => ({
+  const bots = getServices();
+  return bots.map((bot: any) => ({
     id: bot.botId,
     label: `${bot.ticker} - ${bot.botId} (${bot.status})`
   }));

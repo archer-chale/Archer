@@ -17,11 +17,8 @@ import {
 } from '@mui/material';
 import { 
   ExpandMore, 
-  TrendingUp, 
-  TrendingDown, 
   AttachMoney, 
   AccessTime, 
-  LocalOffer 
 } from '@mui/icons-material';
 import { useFirebaseServices } from '../../hooks/useFirebaseServices';
 
@@ -166,7 +163,7 @@ const Dashboard = () => {
                         
                         <AccordionDetails sx={{ p: 0, maxHeight: '300px', overflow: 'auto' }}>
                           <List sx={{ p: 0 }}>
-                            {Object.entries(service.orders).map(([orderId, orderData]) => (
+                            {Object.entries(service.orders).map(([orderId, orderData]: [string, any]) => (
                               <ListItem 
                                 key={orderId} 
                                 divider 
