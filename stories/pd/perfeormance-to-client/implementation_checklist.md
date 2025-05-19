@@ -9,9 +9,9 @@ This checklist outlines all the necessary steps to implement the stock performan
 **Why:** We need to define a new channel pattern for ticker performance data to use in Redis pub/sub.
 
 **Tasks:**
-- [ ] Add a new static method to the `CHANNELS` class to generate performance channel names
-- [ ] Add a schema definition for performance data in `MESSAGE_SCHEMAS`
-- [ ] Update the schema getter methods to handle the new channel pattern
+- [x] Add a new static method to the `CHANNELS` class to generate performance channel names
+- [x] Add a schema definition for performance data in `MESSAGE_SCHEMAS`
+- [x] Update the schema getter methods to handle the new channel pattern
 
 **Pseudo Code:**
 ```python
@@ -64,9 +64,9 @@ def get(cls, channel_name: str, default=None):
 **Why:** Currently, the performance calculator saves data to a local file. We need to extend it to publish updates to Redis so the data can be forwarded to Firebase.
 
 **Tasks:**
-- [ ] Add Redis publisher initialization
-- [ ] Create method to publish performance data to Redis
-- [ ] Modify existing code to publish performance updates when calculated
+- [x] Add Redis publisher initialization
+- [x] Create method to publish performance data to Redis
+- [x] Modify existing code to publish performance updates when calculated
 
 **Pseudo Code:**
 ```python
@@ -116,9 +116,6 @@ for symbol, profit_data in updated_profits.items():
         # Publish aggregate as its own symbol
         self.publish_performance_data('aggregate', profit_data)
 
-Comment:
-- Are we currently looping to publish the performance data for each symbol?
-
 ```
 
 ## 3. Update Firebase Client
@@ -128,8 +125,8 @@ Comment:
 **Why:** We need to add methods to store performance data in Firebase for each ticker.
 
 **Tasks:**
-- [ ] Create a generic `store_ticker_data` method
-- [ ] Implement a `store_performance` method using the generic method
+- [x] Create a generic `store_ticker_data` method
+- [x] Implement a `store_performance` method using the generic method
 
 **Pseudo Code:**
 ```python
@@ -189,6 +186,9 @@ def store_performance(self, symbol: str, performance_data: Dict[str, Any]) -> bo
         self.logger.error(f"Error formatting performance data for {symbol}: {e}")
         return False
 ```
+
+Notes:
+- Lets update existing methods to use the new store_ticker_data method
 
 ## 4. Update Redis Subscriber
 

@@ -80,7 +80,7 @@ class FirebaseRedisSubscriber:
             
     def subscribe_to_ticker_channels(self) -> None:
         """
-        Subscribe to all ticker channels
+        Subscribe to all ticker price update and performance channels
         """
         if not self.subscriber:
             self.logger.error("Cannot subscribe: Redis connection not established")
@@ -88,12 +88,29 @@ class FirebaseRedisSubscriber:
             
         self.logger.info(f"Subscribing to {len(self.tickers)} ticker channels")
         for ticker in self.tickers:
-            channel_name = CHANNELS.get_ticker_channel(ticker)
-            success = self.subscriber.subscribe(channel_name, self._message_handler)
+            # Subscribe to price updates
+            price_channel = CHANNELS.get_ticker_channel(ticker)
+            success = self.subscriber.subscribe(price_channel, self._message_handler)
             if success:
-                self.logger.info(f"Subscribed to channel: {channel_name}")
+                self.logger.info(f"Subscribed to channel: {price_channel}")
             else:
-                self.logger.error(f"Failed to subscribe to channel: {channel_name}")
+                self.logger.error(f"Failed to subscribe to channel: {price_channel}")
+                
+            # Subscribe to performance updates
+            performance_channel = CHANNELS.get_ticker_performance_channel(ticker)
+            success = self.subscriber.subscribe(performance_channel, self._message_handler)
+            if success:
+                self.logger.info(f"Subscribed to channel: {performance_channel}")
+            else:
+                self.logger.error(f"Failed to subscribe to channel: {performance_channel}")
+        
+        # Also subscribe to aggregate performance as its own "ticker"
+        aggregate_performance_channel = CHANNELS.get_ticker_performance_channel('aggregate')
+        success = self.subscriber.subscribe(aggregate_performance_channel, self._message_handler)
+        if success:
+            self.logger.info(f"Subscribed to channel: {aggregate_performance_channel}")
+        else:
+            self.logger.error(f"Failed to subscribe to channel: {aggregate_performance_channel}")
     
     def _message_handler(self, message: Dict[str, Any]) -> None:
         """
@@ -103,20 +120,25 @@ class FirebaseRedisSubscriber:
             message: The message received from Redis
         """
         try:
+            channel = message.get('channel', '')
             data = message.get('data', {})
-            message_type = data.get('type')
-            
-            # Get basic message info
             timestamp = message.get('timestamp', 'unknown')
             sender = message.get('sender', 'unknown')
             
-            if message_type == 'price':
-                self._handle_price_update(data, timestamp, sender)
-            elif message_type == 'order':
-                self._handle_order_update(data, timestamp, sender)
+            # Determine message type based on channel
+            if channel.startswith('TICKER_UPDATES_'):
+                message_type = data.get('type')
+                if message_type == 'price':
+                    self._handle_price_update(data, timestamp, sender)
+                elif message_type == 'order':
+                    self._handle_order_update(data, timestamp, sender)
+                else:
+                    self.logger.warning(f"Received unknown message type: {message_type} on channel {channel}")
+            elif channel.startswith('TICKER_PERFORMANCE_'):
+                self._handle_performance_update(data, timestamp, sender)
             else:
-                self.logger.warning(f"Received unknown message type: {message_type}")
-                self.logger.debug(f"Raw message: {message}")
+                self.logger.warning(f"Received message on unknown channel: {channel}")
+                
         except Exception as e:
             self.logger.error(f"Error handling message: {e}")
             self.logger.debug(f"Raw message: {message}")
@@ -176,6 +198,32 @@ class FirebaseRedisSubscriber:
             else:
                 self.logger.warning(f"Failed to store order for {symbol} in Firebase")
         
+    def _handle_performance_update(self, data: Dict[str, Any], timestamp: str, sender: str) -> None:
+        """
+        Handle performance update messages
+        
+        Args:
+            data: The performance data from the message
+            timestamp: The timestamp of the message
+            sender: The sender of the message
+        """
+        symbol = data.get('symbol', 'unknown')
+        total = data.get('total', 'unknown')
+        unrealized = data.get('unrealized', 'unknown')
+        realized = data.get('realized', 'unknown')
+        
+        self.logger.info(f"PERFORMANCE UPDATE [{timestamp}] from {sender}")
+        self.logger.info(f"  Symbol: {symbol}, Total: {total}, Unrealized: {unrealized}, Realized: {realized}")
+        self.logger.debug(f"  Raw data: {data}")
+        
+        # Store performance in Firebase if client is available
+        if self.firebase_client:
+            success = self.firebase_client.store_performance(symbol, data)
+            if success:
+                self.logger.debug(f"Successfully stored performance for {symbol} in Firebase")
+            else:
+                self.logger.warning(f"Failed to store performance for {symbol} in Firebase")
+    
     def start_listening(self) -> None:
         """
         Start listening for messages on all subscribed channels

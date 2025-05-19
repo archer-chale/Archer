@@ -189,6 +189,62 @@ class FirebaseClient:
             self.logger.error(f"Error storing order for {symbol}: {e}")
             return False
     
+    def store_ticker_data(self, symbol: str, data_key: str, data_value: Dict[str, Any]) -> bool:
+        """
+        Generic method to store data for a ticker at a specific key
+        
+        Args:
+            symbol: The ticker symbol (e.g., AAPL)
+            data_key: The key under the ticker to store data (e.g., 'performance')
+            data_value: The data to store
+            
+        Returns:
+            bool: True if storing successful, False otherwise
+        """
+        if not self.db_ref:
+            self.logger.error(f"Cannot store {data_key}: Firebase connection not established")
+            return False
+            
+        try:
+            # Store in Firebase - path will be /services/{symbol}/{data_key}
+            service_ref = self.db_ref.child('services').child(symbol)
+            service_ref.child(data_key).set(data_value)
+            
+            self.logger.info(f"Stored {data_key} for {symbol}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error storing {data_key} for {symbol}: {e}")
+            return False
+    
+    def store_performance(self, symbol: str, performance_data: Dict[str, Any]) -> bool:
+        """
+        Store performance data for a ticker
+        
+        Args:
+            symbol: The ticker symbol (e.g., AAPL)
+            performance_data: Dictionary containing performance details
+            
+        Returns:
+            bool: True if storing successful, False otherwise
+        """
+        try:
+            # Format performance data for Firebase
+            formatted_performance = {
+                "total": performance_data.get("total", "0"),
+                "unrealized": performance_data.get("unrealized", "0"),
+                "realized": performance_data.get("realized", "0"),
+                "converted": performance_data.get("converted", "0"),
+                "timestamp": performance_data.get("timestamp", str(time.time()))
+            }
+            
+            # Store using the generic method
+            return self.store_ticker_data(symbol, 'performance', formatted_performance)
+                
+        except Exception as e:
+            self.logger.error(f"Error formatting performance data for {symbol}: {e}")
+            return False
+    
     def close(self) -> None:
         """
         Close the Firebase connection
