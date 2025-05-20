@@ -68,7 +68,7 @@ const Dashboard = () => {
             gap: 2
           }}>
             <AttachMoney fontSize="large" />
-            Stock Market Dashboard
+            Stock Market Dashboard Updated
           </Typography>
         </Grid>
         
