@@ -7,6 +7,7 @@ from ..common.constants import (
     METADATA_FILE,
     TradingType
 )
+from ..csv_utils.csv_tool_helper import clip_decimal_place_shares
 
 class CSVCore:
     """
@@ -139,6 +140,153 @@ class CSVCore:
         It calls the internal _save_csv_data method to perform the actual saving.
         """
         self._save_csv_data(self.csv_filepath, self.csv_data)
+
+    # Total cash value of all lines
+    def get_total_cash_value(self) -> float:
+        """
+        Get the total cash value of all lines in the CSV data. (Public method)
+
+        Returns:
+            float: The total cash value.
+        """
+        total_value = 0
+        for row in self.csv_data:
+            total_value += float(row.get('target_shares', 0)) * float(row.get('buy_price', 0))
+        return total_value
+
+    def chase_price(self, context: Dict[str, Union[str, float, int]]):
+        """
+        Before this function is called, a check for
+        1. No held shared in csv should be done
+        2. No pending orders in csv
+        """
+        # Get the current price from the context
+        current_price = context["current_price"]
+        # Make sure lines are loaded
+        if not self.csv_data:
+            self._load_csv_data()
+
+        # Do the appropriate checks to see if price is chasable
+        # Chasable in the sense that current price is more than .01 of buy_price at index 0
+        if not float(self.csv_data[0]["buy_price"])+0.01 < current_price:
+            # Handle unchasable lines
+            print(f'Current price {current_price} is not greater than buy price {self.csv_data[0]["buy_price"]} + 0.01')
+            print(f"Not chasing price, current price {current_price} is not greater than buy price {self.csv_data[0]['buy_price']}")
+            return
+        # Proceed with chasable lines        
+        # Because of the sliding lock of the top line we need to compare with second line to ensure lock limit
+        # ex. line 1 [ 105, 205 ]  line 2 [ 100, 200 ]
+        # another illustration of example above
+        # line 1 [ ......105..............................205 ]  
+        # line 2 [ 100..........................200.......... ]
+        # We still keep the check for the first line having a difference of .5% between buy and sell price
+        first_line = self.csv_data[0]
+        second_line = self.csv_data[1]
+        buy_price = float(first_line["buy_price"])
+        sell_price = float(first_line["sell_price"])
+        # Check that the difference is close to .5%
+        precentage_diff = abs((sell_price - buy_price) / buy_price)
+        if precentage_diff < 0.004: # Keep it at .4% for now as its close to .5%
+            print(f"Unexpected price difference {precentage_diff}, not chasing")
+            return
+        
+        # Get total cash value from all lines combined
+        total_cash_value = self.get_total_cash_value()
+        new_buy_price = round(float(first_line["buy_price"]) + 0.01, 2)
+        new_sell_price = round(new_buy_price * (1 + 0.005), 2)
+        # Check that the second line and first line are locked at buy and sell price
+        if abs((float(second_line["sell_price"]) - float(first_line["buy_price"])) != 0):
+            print(f"First line and second line are not locked, shifting first line up")
+            # shift row 1 buy price up by .01 cents and sell price be .5% of buy price
+            # new_buy_price = round(float(first_line["buy_price"]) + 0.01, 2)
+            first_line["buy_price"] = new_buy_price
+            first_line["sell_price"] = new_sell_price
+        else :
+            print(f"First line and second line are locked inserting new line")
+            # We need a new line at the top that copies the first line and shifts the diff
+            new_line = {
+                "index": 0,
+                "buy_price": new_buy_price,
+                "sell_price": new_sell_price,
+                "target_shares": 0,
+                "held_shares": 0,
+                "pending_order_id": "None",
+                "spc": "N",
+                "unrealized_profit": 0,
+                "last_action": self._get_epoch_time(),
+                "profit": 0
+            }
+            # Shift all other lines up an index by 1
+            for i in range(len(self.csv_data)):
+                # Shift the index of the line
+                self.csv_data[i]["index"] = i + 1
+            # Set the new line at index 0, need to not loose the first line
+            self.csv_data.insert(0, new_line)
+        
+        # need to rebalance cash value of all lines
+        print(f"Rebalancing cash value of all lines")
+        self.even_redistribution(total_cash_value)
+
+    def even_redistribution(self, total_cash: float) -> None:
+        """
+        Distribute cash evenly across all lines.
+        Args:
+            total_cash (float): The total cash to distribute.
+        """
+        # Get the number of lines
+        num_lines = len(self.csv_data)
+        if num_lines == 0:
+            print("No lines to redistribute cash to.")
+            return
+        
+        # Calculate the cash per line
+        cash_per_line = total_cash / num_lines
+        extra_dollars = 0
+        # Distribute the cash
+        for row in self.csv_data:
+            # Get the current buy price
+            buy_price = float(row["buy_price"])
+            # Calculate the number of shares to buy
+            intended_shares = (cash_per_line + extra_dollars) / buy_price
+            # Get the clipped extra shares
+            extra_shares = clip_decimal_place_shares(buy_price, intended_shares)
+            # take out the extra shares
+            intended_shares -= extra_shares
+            #Put the extra shares back into the extra dollars
+            extra_dollars = extra_shares * buy_price
+            # set the target shares
+            row["target_shares"] = intended_shares
+
+        # If there are any extra dollars left, add them to the last line
+        if extra_dollars:
+            last_row = self.csv_data[-1]
+            last_row["target_shares"] += extra_dollars / float(last_row["buy_price"])
+            last_row["spc"] = "last"
+        # Save the updated CSV data
+        self._save_csv_data(self.csv_filepath, self.csv_data)
+        
+    def is_chasable_lines(self, current_price=None):
+        """
+        Check if the lines are chasable.
+        This function checks if the lines are chasable based on the state of csv_price.
+        empty lines are not chasable. and shares on index 0 are not chasable.
+        If the lines are chasable, it will return True, otherwise False.
+        """
+        # Check if the lines are empty
+        if not self.csv_data or not current_price:
+            return False
+        # Check if the first line has shares
+        if float(self.csv_data[0]["held_shares"]) > 0:
+            return False
+        # Check if current_price is not greater than index 0's buy_price
+        if float(self.csv_data[0]["buy_price"]) >= float(current_price):
+            return False
+
+        # Check if there are any pending orders
+        for row in self.csv_data:
+            if row["pending_order_id"] != "None":
+                return False
+        return True        
 
     def _get_epoch_time(self):
         return int(time.time())
