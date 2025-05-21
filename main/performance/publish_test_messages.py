@@ -239,3 +239,9 @@ if __name__ == "__main__":
     # Clean up
     publisher.close()
     logger.info("Test publisher closed")
+
+# python publish_test_messages.py --symbol TSLA --performance
+# python publish_test_messages.py --symbol TSLA --price
+# python publish_test_messages.py --symbol TSLA --order
+# python publish_test_messages.py --empty
+# python publish_test_messages.py --symbol TSLA --performance --price --count 3 --delay 2
