@@ -1,5 +1,5 @@
 import unittest
-from main.bots.SCALE_T.csv_utils.csv_tool_helper import find_least_decimal_digit_for_shares
+from main.bots.SCALE_T.csv_utils.csv_tool_helper import find_least_decimal_digit_for_shares, clip_decimal_place_shares
 
 
 # import debugpy
@@ -34,6 +34,16 @@ class TestCSVService(unittest.TestCase):
         self.assertEqual(find_least_decimal_digit_for_shares(1000.1), .01)
         self.assertEqual(find_least_decimal_digit_for_shares(10000.1), .001)
         self.assertEqual(find_least_decimal_digit_for_shares(100000.1), .0001)
+
+    def test_clip_decimal_place_shares(self):
+        """
+        Test the clip_decimal_place_shares function.
+        walking through some examples
+        bp = 100, ts = .516, expected = .016
+        """
+        self.assertAlmostEqual(clip_decimal_place_shares(100, .516), .016)
+        self.assertAlmostEqual(clip_decimal_place_shares(1000, .516), 0)
+        
 
 
 if __name__ == '__main__':

@@ -8,8 +8,10 @@ processing and manipulating CSV data according to the SCALE_T strategy.
 from typing import Dict, Optional, Union
 from main.bots.SCALE_T.common.constants import TradingType
 from main.bots.SCALE_T.csv_utils.csv_core import CSVCore
-from main.bots.SCALE_T.csv_utils.csv_tool_prompts import create_csv_questionaire, manipulate_csv_questionaire
-from main.bots.SCALE_T.csv_utils.csv_tool_helper import find_least_decimal_digit_for_shares
+from main.bots.SCALE_T.csv_utils.csv_tool_helper import find_least_decimal_digit_for_shares, clip_decimal_place_shares
+from main.bots.SCALE_T.csv_utils.csv_tool_prompts import (
+    create_csv_questionaire, get_information_on_csv_questionaire, update_csv_questionaire
+)
 
 # Usable by Nanny, Usable by csv_tool loop below
 class CSVWorker(CSVCore):
@@ -31,12 +33,13 @@ class CSVWorker(CSVCore):
         distribution_style = answers["distribution_style"] # will be needed when we do uneven distributions
 
         # decide base number of lines based on risk type
-        num_lines = risk_type*100
+        num_lines = int(risk_type*100)
 
         current_sell_price = round(starting_buy_price * (1 + (percentage_diff)), 2)
         dollar_per_line = answers["total_cash"] / num_lines
         print(f"dollar per line is {dollar_per_line}")
         extra_dollars = 0
+        last_row = None
         # Create the line by line creation loop for the list of dicts
         for i in range(num_lines):
             row = {}
@@ -44,30 +47,23 @@ class CSVWorker(CSVCore):
             buy_price = round(current_sell_price * (1 - percentage_diff), 2)
             row["buy_price"] = buy_price
             row["sell_price"] = current_sell_price
-            least_decimal_place_shares = find_least_decimal_digit_for_shares(buy_price)
-            # take dollar per line/ devide by buy price that gives u shares per line. To ensure the share
-            # count is above $2 in value, we cut the digits at the least allowed decimal place
-            # How do we cut the digits?
-            # take the least decimal place shares from function. For 100 buy price, least decimal place share is
-            # .1 . only variable is dollar_per line. lets say we got 10 per line. 10/100 = .1
-            # We need to set number to 0 or remove extra digits
-            # we do that by cases
-            # 1. if number is less than least digits. set to 0
-            # 2. cut digits down to same as least_decimal digits
-            # 3. save extras as dollar amount and set target shares
-            available_dollars_for_line = dollar_per_line + extra_dollars
-            intended_target_shares = available_dollars_for_line/buy_price
-            if intended_target_shares < least_decimal_place_shares:
-                row["target_shares"] = 0
-                extra_dollars = intended_target_shares * buy_price
-            else :
-                # By cut down what i mean is 
-                # if ldd is .01 we want to only have multiples of this number
-                multiples_ldd = int(intended_target_shares/least_decimal_place_shares)*least_decimal_place_shares
-                row["target_shares"] = multiples_ldd
-                # Save the extra money
-                extra_dollars = buy_price*(intended_target_shares-multiples_ldd)
-
+            # Calculate the number of shares to buy
+            # Split extra dollars across lines left
+            lines_left = num_lines - i
+            # Calculate extra for this line
+            extra_for_this_line = extra_dollars / lines_left
+            extra_dollars -= extra_for_this_line
+            dollar_for_this_line = dollar_per_line + extra_for_this_line
+            # Calculate the intended shares
+            intended_shares = dollar_for_this_line / buy_price
+            # Get the clipped extra shares
+            extra_shares = clip_decimal_place_shares(buy_price, intended_shares)
+            # take out the extra shares
+            intended_shares -= extra_shares
+            #Put the extra shares back into the extra dollars
+            extra_dollars += extra_shares * buy_price
+            # set the target shares
+            row["target_shares"] = intended_shares
             row["held_shares"] = 0
             row["pending_order_id"] = "None"
             row["spc"] = "N"
@@ -75,17 +71,24 @@ class CSVWorker(CSVCore):
             row["last_action"] = self._get_epoch_time()
             row["profit"] = 0
             
+            last_row = row
             self.csv_data.append(row)
             current_sell_price = buy_price
 
+        if extra_dollars:
+            last_row["target_shares"] += extra_dollars/last_row['buy_price']
+            last_row["spc"] = "last"
 
         # Save the list of dicts to the csv file
         self.save()
 
-
-    def manipulate_csv(self):
+    def get_information(self):
         # Place holder
         pass
+
+    def update_csv(self):
+        pass
+
 
 
 if __name__ == "__main__":
@@ -116,6 +119,26 @@ if __name__ == "__main__":
 
     # Manipulation eternal loop
     while True:
-        answers = manipulate_csv_questionaire()
-        worker.manipulate_csv(answers)
-    
+        print("What would you like to do")
+        pick = int(input(f"1. For Information.  2. For Updating: "))
+        if pick == 1:
+            # Get information on the csv
+            answers = get_information_on_csv_questionaire()
+            worker.get_information(answers)
+        elif pick == 2:
+            # Update the csv
+            print("=== CSV Update ===")
+            answers = update_csv_questionaire()
+            if answers["update_type"] == 1:
+                # Chase price
+                # After implementing the chase price we can ask worker to do so with answers
+                if worker.is_chasable_lines(answers.get("current_price", "None")):
+                    print("Based on current conditions,csv is chasable, chasing now")
+                    worker.chase_price(answers)
+                else:
+                    print("CSV is not chasable")
+            else:
+                print("No other options yet")
+
+# Would like to setup this tooling to look like a database. Instead of CRUD ops
+# Would be nice to have Create, Information, Update

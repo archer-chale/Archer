@@ -19,6 +19,8 @@ from ..common.logging_config import get_logger
 from ..common.notify import send_notification
 from ..common.constants import TradingType
 
+from ..csv_utils.csv_service import CSVService
+
 from .constants import MessageType, OrderState
 
 from ....utils.redis import ( 
@@ -29,7 +31,7 @@ class DecisionMaker:
     def __init__(self, csv_service, alpaca_interface):
         self.logger = get_logger("decision_maker")
         self.logger.info(f"Initializing DecisionMaker for {csv_service.ticker}")
-        self.csv_service = csv_service
+        self.csv_service: CSVService = csv_service
         self.alpaca_interface = alpaca_interface
         self.action_queue = queue.Queue()
         self.producer_thread = None
@@ -64,7 +66,7 @@ class DecisionMaker:
         self.action_queue.put({'type': 'price_update', 'data': current_price})
 
         self.logger.info("Checking share count.")
-        self._check_share_count()
+        # self._check_share_count()
 
 
     def _check_share_count(self):
@@ -366,6 +368,11 @@ class DecisionMaker:
         if self._check_place_buy_order(current_price):
             self.logger.info("Price update handled by buy order check.")
             return
+        
+        # At this point, we have neither a pending order nor a new order to place
+        # Check to see if we need to chase lines
+        if self.csv_service.is_chasable_lines(current_price):
+            self.csv_service.chase_price({"current_price":current_price})
 
     def consume_actions(self):
         if self.publisher is None:
