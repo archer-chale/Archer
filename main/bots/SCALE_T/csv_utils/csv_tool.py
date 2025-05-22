@@ -86,8 +86,13 @@ class CSVWorker(CSVCore):
         # Place holder
         pass
 
-    def update_csv(self):
-        pass
+    def add_cash_update(self, additional_cash: float):
+        # Add additional cash to the total cash in the CSV
+        current_cash = self.get_total_cash_value()
+        new_cash = current_cash + additional_cash
+
+        # For now even distribution until config can bring in new distribution styles
+        self.even_redistribution(new_cash)
 
 
 

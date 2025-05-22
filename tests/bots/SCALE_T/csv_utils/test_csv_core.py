@@ -365,17 +365,19 @@ class TestCsvCore(unittest.TestCase):
             {
                 "index": "1",
                 "target_shares": "100",
+                "held_shares": "0",
                 "buy_price": "10.5",
                 "sell_price": "11.0"
             },
             {
                 "index": "2",
                 "target_shares": "200",
+                "held_shares": "0",
                 "buy_price": "20.5",
                 "sell_price": "21.0"
             }
         ]
-        self.test_csv_core1.even_redistribution(total_cash=1000)
+        success = self.test_csv_core1.even_redistribution(total_cash=1000)
         # Check that the internal save method was called
         mock_internal_save.assert_called_once()
         # Check that the csv_data was updated correctly
@@ -383,16 +385,30 @@ class TestCsvCore(unittest.TestCase):
         # line 0, 500/10.5 = 47.61904761904762
         # line 1, 500/20.5 = 24.390243902439025
         # Checking only the target_shares for simplicity
+        self.assertTrue(success)
         self.assertAlmostEqual(float(self.test_csv_core1.csv_data[0]["target_shares"]), 47.61904761904762, places=6)
         self.assertAlmostEqual(float(self.test_csv_core1.csv_data[1]["target_shares"]), 24.390243902439025, places=6)
         # one case where cash amount is not evenly divisible
         # lets do 201
-        self.test_csv_core1.even_redistribution(total_cash=201)
+        success = self.test_csv_core1.even_redistribution(total_cash=201)
         # for 201, 100.5 for each line. find the share count
         # line 0, 100.5/10.5 = 9.523809523809524
         # line 1, 100.5/20.5 = 4.926829268292683
+        self.assertTrue(success)
         self.assertAlmostEqual(float(self.test_csv_core1.csv_data[0]["target_shares"]), 9.523809523809524, places=6)
         self.assertAlmostEqual(float(self.test_csv_core1.csv_data[1]["target_shares"]), 4.926829268292683, places=6)
+
+        # Check the return on False
+        # Test with heldshares
+        self.test_csv_core1.csv_data[0]["held_shares"] = "50"
+        success = self.test_csv_core1.even_redistribution(total_cash=1000)
+        self.assertFalse(success)
+
+        # Test with empty data
+        self.test_csv_core1.csv_data = []
+        success = self.test_csv_core1.even_redistribution(total_cash=1000)
+        self.assertFalse(success)
+
 
 
     # chase_price
@@ -403,18 +419,21 @@ class TestCsvCore(unittest.TestCase):
             {
                 "index": "0",
                 "target_shares": "100",
+                "held_shares": "0",
                 "buy_price": "10.5",
                 "sell_price": "11.0"
             },
             {
                 "index": "1",
                 "target_shares": "200",
+                "held_shares": "0",
                 "buy_price": "10.0",
                 "sell_price": "10.5"
             },
             {
                 "index": "2",
                 "target_shares": "300",
+                "held_shares": "0",
                 "buy_price": "9.5",
                 "sell_price": "10.0"
             }
@@ -508,7 +527,6 @@ class TestCsvCore(unittest.TestCase):
         self.test_csv_core1.csv_data = []
         result = self.test_csv_core1.is_chasable_lines(good_current_price)
         self.assertFalse(result, "Expected chasable lines to be False")
-
         
 
 if __name__=="__main__":
