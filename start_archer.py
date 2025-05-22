@@ -1,4 +1,4 @@
-
+from main.bots.SCALE_T.setup_dirs import name as scale_t_name, setup_dirs as scale_t_setup
 
 """
 Graduation steps
@@ -19,13 +19,14 @@ I Have the goal that this file will create
 
 def main():
     print("Starting Archer")
-    # Graduation Step 1.1 Load registration info
-    # Planning registration setup.
-    # Thinking we have a json file called container_registration.json
-    # inside will be a services key with value a dict of service_name and setup file path
-    # we'll take that path and we'll run the setup for you 
-    
-    # 
+    # Will need some configuration for each container so we can setup paths and files as needed
+    # Assume this list came from the configuration
+    containers = [ 'SCALE_T' ]
+    for container in containers:
+        if container == scale_t_name:
+            scale_t_setup(container)
+            print(f"Setup done for {container}")
+    return 
     
 
 # Graduation step no. 1
