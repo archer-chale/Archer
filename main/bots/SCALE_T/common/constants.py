@@ -21,6 +21,11 @@ class TradingType(Enum):
     PAPER = "paper"
     LIVE = "live"
 
+class DataPathType(Enum):
+    LOGS = "logs"
+    TICKER_CSV = "ticker_data"
+    PROFITS = "profits"
+
 TRADING_TYPE_TO_KEY_NAME = {
     TradingType.PAPER : {
         "KEY_ID_NAME" : "PAPER_ALPACA_API_KEY_ID",
@@ -144,3 +149,20 @@ def parse_ticker_filename(filename: str) -> tuple:
         return parts[0], parts[1]
     else:
         return base_name, None
+
+# We need a base root directory that will yield /app/data
+# from there we need trading type to be able to yield logs path and ticker_data path
+# Needs
+# 1. a function that takes in trade state and data type, and returns 
+#    a) ticker_data base path
+#    b) performance base path
+#    b) logs base path
+
+def get_data_path(trading_type: TradingType, data_path_type: DataPathType):
+    # Before implementing ensure the necessary paths are created on startup
+    # We need to ensure that base path is found
+    # we will add data to the base path
+    # take the tradingType use that to determine live or paper for the path
+    # add that to the path
+    # under the new path. add the dataPathType value to the path and boom you have
+    # What you need.
