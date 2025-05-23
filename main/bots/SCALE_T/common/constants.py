@@ -24,7 +24,7 @@ class TradingType(Enum):
 class DataPathType(Enum):
     LOGS = "logs"
     TICKER_CSV = "ticker_data"
-    PROFITS = "profits"
+    profits = os.path.join("performance", "profits")
 
 TRADING_TYPE_TO_KEY_NAME = {
     TradingType.PAPER : {
@@ -57,6 +57,8 @@ def find_base_path(start_path: str, base_path_name: str) -> str:
     return current_path
 
 PROJECT_BASE_PATH = "Archer"
+ticker = "Unknown_ticker"
+trade_type = "Unknown_trade_type"
 BOT_NAME = "SCALE_T"
 DOCKER_BASE_PATH = "app"
 # Determine the base path of your project
@@ -159,10 +161,7 @@ def parse_ticker_filename(filename: str) -> tuple:
 #    b) logs base path
 
 def get_data_path(trading_type: TradingType, data_path_type: DataPathType):
-    # Before implementing ensure the necessary paths are created on startup
-    # We need to ensure that base path is found
-    # we will add data to the base path
-    # take the tradingType use that to determine live or paper for the path
-    # add that to the path
-    # under the new path. add the dataPathType value to the path and boom you have
-    # What you need.
+    return os.path.join("data", BOT_NAME, trading_type.value, data_path_type.value)
+
+def get_bot_name():
+    return ''

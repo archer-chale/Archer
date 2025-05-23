@@ -10,12 +10,12 @@ import argparse
 from .csv_utils.csv_service import CSVService
 from .brokerages.alpaca_interface import AlpacaInterface
 from .trading.decision_maker import DecisionMaker
-from .common.logging_config import get_logger
-from .common.constants import TradingType
+from .common.logging_config import LoggerConfig
+from .common.constants import TradingType, DataPathType, get_data_path
 ###################logging.basicConfig(level=logging.INFO)
 #.env log levels
 
-def run_engine(ticker: str, trading_type: str):
+def run_engine(ticker: str, trading_type: TradingType):
     """
     Starts the SCALE_T trading bot engine.
 
@@ -23,13 +23,17 @@ def run_engine(ticker: str, trading_type: str):
         ticker (str): The stock ticker symbol to trade.
         trading_type (str): The trading type ('paper' or 'live').
     """
-    logger = get_logger("engine")
-    logger.info(f"Starting engine with ticker: {ticker} and trading type: {trading_type}")
-
     try :
-        csv_service = CSVService(ticker=ticker, trading_type=trading_type)
-        alpaca_interface = AlpacaInterface(trading_type=trading_type, ticker=ticker)
-        decision_maker = DecisionMaker(csv_service=csv_service, alpaca_interface=alpaca_interface)
+        # TODO: container name should be coming from run_bot config, DOCKERFILE ??
+        container_name = '_'.join(['ST', ticker ,trading_type.value])
+        log_base_path = get_data_path(trading_type=trading_type, data_path_type=DataPathType.LOGS)
+        logger_config: LoggerConfig = LoggerConfig(bot_name=container_name, log_base_path=log_base_path)
+        logger = logger_config.get_logger("engine")
+        logger.info(f"Starting engine with ticker: {ticker} and trading type: {trading_type}")
+
+        csv_service = CSVService(ticker=ticker, trading_type=trading_type, logger_config=logger_config)
+        alpaca_interface = AlpacaInterface(trading_type=trading_type, ticker=ticker, logger_config=logger_config)
+        decision_maker = DecisionMaker(csv_service=csv_service, alpaca_interface=alpaca_interface, logger_config=logger_config)
         decision_maker.launch_action_producer_threads()
         logger.info("Engine Started")
         decision_maker.consume_actions()

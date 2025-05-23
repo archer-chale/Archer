@@ -9,7 +9,7 @@ from typing import Dict, Optional, Union
 from .csv_core import CSVCore
 
 
-from ..common.logging_config import get_logger
+from ..common.logging_config import LoggerConfig
 from ..common.constants import TradingType
 
 class CSVService(CSVCore):
@@ -19,7 +19,7 @@ class CSVService(CSVCore):
     Uses dictionary-based operations for data manipulation.
     """
 
-    def __init__(self, ticker: str, trading_type: TradingType, custom_id: Optional[str] = None):
+    def __init__(self, ticker: str, trading_type: TradingType, logger_config: LoggerConfig, custom_id: Optional[str] = None):
         """
         Initialize CSVService with ticker and trading type.
 
@@ -32,10 +32,9 @@ class CSVService(CSVCore):
             ValueError: If trading_type is invalid
         """
         super().__init__(ticker, trading_type, custom_id)
-        self.logger = get_logger("csv_service")
+        self.logger = logger_config.get_logger("csv_service")
         self.logger.info(f"Initializing CSVService for {self.ticker} ({self.trading_type}) with custom_id: {self.custom_id}")
         # Load metadata and get required columns``
-        self.csv_data = [] # Initialize to empty list
         self._load_csv_data()
         if not self.csv_data:
             self.logger.error("CSV data not found. CSVService initialization failed.")

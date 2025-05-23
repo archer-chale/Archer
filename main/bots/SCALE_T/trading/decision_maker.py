@@ -15,7 +15,7 @@ from alpaca.data.enums import DataFeed
 from alpaca.data.models.trades import Trade
 from alpaca.trading import TradeUpdate
 
-from ..common.logging_config import get_logger
+from ..common.logging_config import LoggerConfig
 from ..common.notify import send_notification
 from ..common.constants import TradingType
 
@@ -28,8 +28,8 @@ from ....utils.redis import (
 )
 
 class DecisionMaker:
-    def __init__(self, csv_service, alpaca_interface):
-        self.logger = get_logger("decision_maker")
+    def __init__(self, csv_service, alpaca_interface, logger_config : LoggerConfig):
+        self.logger = logger_config.get_logger("decision_maker")
         self.logger.info(f"Initializing DecisionMaker for {csv_service.ticker}")
         self.csv_service: CSVService = csv_service
         self.alpaca_interface = alpaca_interface
