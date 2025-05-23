@@ -21,6 +21,14 @@ class CHANNELS:
             logger.error(f"Invalid ticker provided for channel generation: {ticker}")
             raise ValueError("Ticker must be a non-empty string")
         return f"TICKER_UPDATES_{ticker.upper()}"
+        
+    @staticmethod
+    def get_ticker_performance_channel(ticker: str) -> str:
+        """Generate the dynamic channel name for a specific ticker's performance data."""
+        if not ticker or not isinstance(ticker, str):
+            logger.error(f"Invalid ticker provided for performance channel generation: {ticker}")
+            raise ValueError("Ticker must be a non-empty string")
+        return f"TICKER_PERFORMANCE_{ticker.upper()}"
 
     @classmethod
     def get_schema(cls, channel_name: str):
@@ -32,6 +40,8 @@ class CHANNELS:
         elif channel_name.startswith("TICKER_UPDATES_"):
             # All dynamic ticker channels use the same combined schema
             return MESSAGE_SCHEMAS.TICKER_UPDATES
+        elif channel_name.startswith("TICKER_PERFORMANCE_"):
+            return MESSAGE_SCHEMAS.TICKER_PERFORMANCE
         else:
             logger.warning(f"No schema found for channel: {channel_name}")
             return {} # Return empty schema if no match
@@ -85,6 +95,21 @@ class MESSAGE_SCHEMAS:
         }
         # Note: Further validation within 'order_data' might be needed depending on requirements
     }
+    
+    # Schema for performance data channels
+    TICKER_PERFORMANCE = {
+        "required_fields": ["symbol", "total", "unrealized", "realized", "timestamp"],
+        "optional_fields": ["converted"],
+        "field_types": {
+            "total": (int, float, str),
+            "unrealized": (int, float, str),
+            "realized": (int, float, str),
+            "converted": (int, float, str),
+            "timestamp": str,
+            "symbol": str
+        },
+        "allowed_values": {}
+    }
 
     @classmethod
     def get(cls, channel_name: str, default=None):
@@ -95,6 +120,8 @@ class MESSAGE_SCHEMAS:
             return cls.PROFIT_REPORT
         elif channel_name.startswith("TICKER_UPDATES_"):
             return cls.TICKER_UPDATES
+        elif channel_name.startswith("TICKER_PERFORMANCE_"):
+            return cls.TICKER_PERFORMANCE
         else:
             logger.warning(f"Attempted to get schema for unknown or dynamic channel directly: {channel_name}")
             return default if default is not None else {}

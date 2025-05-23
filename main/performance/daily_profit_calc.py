@@ -3,6 +3,8 @@ import os
 import json
 import logging
 
+from main.utils.redis import RedisPublisher, CHANNELS
+
 
 # Define base path for the profit file
 profit_base_path = 'data/performance/profits/'
@@ -44,11 +46,19 @@ class DailyProfitManager:
     """
     Class to manage daily profit calculations.
     """
-    def __init__(self):
+    def __init__(self, redis_host='redis', redis_port=6379, redis_db=0):
         self.profit_content = None
         self.current_day = None
         self.current_profit_path = None
         self.logger = logging.getLogger(__name__)
+        
+        # Initialize Redis publisher
+        try:
+            self.publisher = RedisPublisher(host=redis_host, port=redis_port, db=redis_db)
+            self.logger.info("Redis publisher initialized")
+        except Exception as e:
+            self.logger.error(f"Error initializing Redis publisher: {e}")
+            self.publisher = None
 
     def get_complete_profit_path(self):
         """
@@ -125,6 +135,12 @@ class DailyProfitManager:
         self.profit_content["aggregate"] = aggregate
         # Save the updated profit content
         self.save_profit()
+        
+        # Publish performance data to Redis
+        self.publish_performance_data(symbol, self.profit_content[symbol])
+        
+        # Also publish aggregate as its own symbol
+        self.publish_performance_data('aggregate', self.profit_content['aggregate'])
 
     def read_profit_file(self):
         """
@@ -143,4 +159,38 @@ class DailyProfitManager:
     def save_profit(self):
         with open(self.current_profit_path, 'w') as f:
             json.dump(self.profit_content, f)
+    
+    def publish_performance_data(self, symbol, performance_data):
+        """
+        Publish performance data to Redis for a specific symbol.
+        
+        Args:
+            symbol: The ticker symbol
+            performance_data: Dictionary with performance metrics
+        """
+        if not self.publisher:
+            self.logger.error(f"Cannot publish performance data for {symbol}: Redis publisher not initialized")
+            return
+            
+        try:
+            channel = CHANNELS.get_ticker_performance_channel(symbol)
+            
+            # Ensure timestamp is included
+            if 'timestamp' not in performance_data:
+                performance_data['timestamp'] = dt.now(timezone.utc).isoformat()
+                
+            # Add symbol to data
+            performance_data_copy = performance_data.copy()  # Create a copy to avoid modifying the original
+            performance_data_copy['symbol'] = symbol
+                
+            # Publish to Redis
+            self.publisher.publish(
+                channel=channel,
+                message_data=performance_data_copy,
+                sender='performance_calculator'
+            )
+            self.logger.info(f"Published performance data for {symbol} to Redis")
+            
+        except Exception as e:
+            self.logger.error(f"Error publishing performance data for {symbol}: {e}")
 

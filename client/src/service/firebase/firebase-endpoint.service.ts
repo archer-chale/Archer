@@ -46,10 +46,20 @@ class FirebaseEndpointService {
     const unsubscribe = onValue(servicesRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const servicesArray = Object.entries(data).map(([ticker, serviceData]) => ({
-          ticker,
-          ...serviceData as Omit<Service, 'ticker'>
-        }));
+        const servicesArray = Object.entries(data).map(([ticker, serviceData]) => {
+          // Cast to any to work with the data
+          const typedData = serviceData as any;
+          
+          // Create a properly typed service object with defaults for missing properties
+          const service: Service = {
+            ticker,
+            status: typedData.status || 'stopped',  // Default status
+            bots: typedData.bots || {},            // Default empty bots object
+            ...typedData                           // Include all other data
+          };
+          
+          return service;
+        });
         console.log(servicesArray);
         callback(servicesArray);
       } else {

@@ -1,7 +1,7 @@
 import { 
   messageServiceFirebase 
 } from '../firebase/message.service.firebase';
-import { IConfigMessage, IConfigMessageSimple, IMessageTarget } from '../../types/pubsubmessage.type';
+import { IConfigMessage, IConfigMessageSimple } from '../../types/pubsubmessage.type';
 
 /**
  * Message Service Controller for managing message operations
@@ -43,7 +43,7 @@ class MessageServiceController {
   async getAllMessages(): Promise<IConfigMessageSimple[]> {
     try {
       // Create a promise to get messages
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         // Use the getMessages method from the Firebase service with a callback
         const unsubscribe = messageServiceFirebase.getMessages((messages) => {
           // Convert full messages to simplified form
@@ -216,69 +216,7 @@ class MessageServiceController {
       return () => {};
     }
   }
-
-  /**
-   * Validate a message for required fields and proper structure
-   * @param message - The message to validate
-   * @returns Error message if validation fails, null if valid
-   */
-  private validateMessage(
-    message: Omit<IConfigMessage, 'id' | 'acknowledgement' | 'acknowledgementCount'>
-  ): string | null {
-    // Check for required fields
-    if (!message) {
-      return 'Message is required';
-    }
-
-    if (!message.description || message.description.trim().length === 0) {
-      return 'Message description is required';
-    }
-
-    if (!message.config) {
-      return 'Message configuration is required';
-    }
-
-    // Validate startCountAt for counter bot
-    if (typeof message.config.startCountAt !== 'number') {
-      return 'startCountAt must be a number';
-    }
-
-    // Validate target
-    if (!message.target) {
-      return 'Message target is required';
-    }
-
-    return this.validateMessageTarget(message.target);
-  }
-
-  /**
-   * Validate message target
-   * @param target - The target to validate
-   * @returns Error message if validation fails, null if valid
-   */
-  private validateMessageTarget(target: IMessageTarget): string | null {
-    // Check if target type is valid
-    if (target.type !== 'ALL' && target.type !== 'SELECTED') {
-      return 'Target type must be "ALL" or "SELECTED"';
-    }
-
-    // Check if selected array exists
-    if (!Array.isArray(target.selected)) {
-      return 'Target selected must be an array';
-    }
-
-    // For "ALL" type, selected should be empty
-    if (target.type === 'ALL' && target.selected.length > 0) {
-      return 'Target selected should be empty for type "ALL"';
-    }
-
-    // For "SELECTED" type, selected should have at least one entry
-    if (target.type === 'SELECTED' && target.selected.length === 0) {
-      return 'At least one target must be selected for type "SELECTED"';
-    }
-
-    return null;
-  }
+ 
 }
 
 // Singleton instance

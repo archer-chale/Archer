@@ -19,7 +19,6 @@ import {
   Card,
   CardContent,
   DialogContentText,
-  Divider,
   Grid,
   Tooltip,
   alpha
@@ -49,7 +48,7 @@ const CreateMessageDialog: React.FC<CreateMessageDialogProps> = ({
   onClose,
   onMessageCreated
 }) => {
-  const { saveMessage, loading, error } = useMessage();
+  const { saveMessage, loading } = useMessage();
   
   // Form state
   const [description, setDescription] = useState('');
