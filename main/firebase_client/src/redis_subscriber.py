@@ -120,24 +120,23 @@ class FirebaseRedisSubscriber:
             message: The message received from Redis
         """
         try:
-            channel = message.get('channel', '')
             data = message.get('data', {})
             timestamp = message.get('timestamp', 'unknown')
             sender = message.get('sender', 'unknown')
+
+            # Without checking the channel, determine message type based on data content
+            # This is similar to the approach used in decision_maker.py
+            message_type = data.get('type')
             
-            # Determine message type based on channel
-            if channel.startswith('TICKER_UPDATES_'):
-                message_type = data.get('type')
-                if message_type == 'price':
-                    self._handle_price_update(data, timestamp, sender)
-                elif message_type == 'order':
-                    self._handle_order_update(data, timestamp, sender)
-                else:
-                    self.logger.warning(f"Received unknown message type: {message_type} on channel {channel}")
-            elif channel.startswith('TICKER_PERFORMANCE_'):
+            if message_type == 'price':
+                self._handle_price_update(data, timestamp, sender)
+            elif message_type == 'order':
+                self._handle_order_update(data, timestamp, sender)
+            elif data.get('total') is not None and data.get('unrealized') is not None and data.get('realized') is not None:
+                # This looks like a performance update based on its fields
                 self._handle_performance_update(data, timestamp, sender)
             else:
-                self.logger.warning(f"Received message on unknown channel: {channel}")
+                self.logger.debug(f"Received message with unrecognized type or format: {data}")
                 
         except Exception as e:
             self.logger.error(f"Error handling message: {e}")
