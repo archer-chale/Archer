@@ -233,11 +233,17 @@ class CSVCore:
         Args:
             total_cash (float): The total cash to distribute.
         """
+        # Warning about shares being held
+        for row in self.csv_data:
+            if float(row["held_shares"]) > 0:
+                print(f"Warning: {row['held_shares']} shares are held, not redistributing cash.")
+                return False
+
         # Get the number of lines
         num_lines = len(self.csv_data)
         if num_lines == 0:
             print("No lines to redistribute cash to.")
-            return
+            return False
         
         # Calculate the cash per line
         cash_per_line = total_cash / num_lines
@@ -264,6 +270,7 @@ class CSVCore:
             last_row["spc"] = "last"
         # Save the updated CSV data
         self._save_csv_data(self.csv_filepath, self.csv_data)
+        return True
         
     def is_chasable_lines(self, current_price=None):
         """

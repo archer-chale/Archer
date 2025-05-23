@@ -27,7 +27,7 @@ from ..common.constants import (
     TradingType,
     TRADING_TYPE_TO_KEY_NAME
 )
-from ..common.logging_config import get_logger
+from ..common.logging_config import LoggerConfig
 
 # Load environment variables from .env file
 load_dotenv(ENV_FILE)
@@ -41,8 +41,8 @@ class AlpacaInterface:
     Uses a singleton pattern for the trading client for efficiency.
     """
 
-    def __init__(self, trading_type: str = "paper", ticker: str = None):
-        self.logger = get_logger(self.__class__.__name__)
+    def __init__(self, ticker: str , logger_config: LoggerConfig, trading_type: TradingType= TradingType.PAPER):
+        self.logger = logger_config.get_logger(self.__class__.__name__)
         self.trading_type = trading_type
         self.ticker = ticker
         self.api_key = None

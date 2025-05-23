@@ -15,7 +15,7 @@ from alpaca.data.enums import DataFeed
 from alpaca.data.models.trades import Trade
 from alpaca.trading import TradeUpdate
 
-from ..common.logging_config import get_logger
+from ..common.logging_config import LoggerConfig
 from ..common.notify import send_notification
 from ..common.constants import TradingType
 
@@ -28,8 +28,8 @@ from ....utils.redis import (
 )
 
 class DecisionMaker:
-    def __init__(self, csv_service, alpaca_interface):
-        self.logger = get_logger("decision_maker")
+    def __init__(self, csv_service, alpaca_interface, logger_config : LoggerConfig):
+        self.logger = logger_config.get_logger("decision_maker")
         self.logger.info(f"Initializing DecisionMaker for {csv_service.ticker}")
         self.csv_service: CSVService = csv_service
         self.alpaca_interface = alpaca_interface
@@ -48,8 +48,13 @@ class DecisionMaker:
                 self.pending_order = self.alpaca_interface.get_order_by_id(order_id)
                 self.pending_order_index = pending_order_info["index"]
                 self.logger.info(f"Pending order initialized: {self.pending_order}. Handling order update.")
-                self.handle_order_update(self.pending_order)
-                self.order_state = OrderState.BUYING if self.pending_order.side == OrderSide.BUY else OrderState.SELLING
+                # self.handle_order_update(self.pending_order)
+                #put the order in the queue instead
+                tradeUpdate = TradeUpdate(order=self.pending_order, event=MessageType.ORDER_UPDATE.value, timestamp=dt.now(timezone.utc))
+                self.action_queue.put({'type': MessageType.ORDER_UPDATE, 'data': tradeUpdate, 'source': 'decision_maker'})
+                # self.action_queue.put({'type': MessageType.ORDER_UPDATE, 'data': self.pending_order, 'source': 'decision_maker'})
+                self.logger.info(f"Pending order side: {self.pending_order.side}")
+                # self.order_state = OrderState.BUYING if self.pending_order.side == OrderSide.BUY else OrderState.SELLING
             else:
                 self.logger.error("Pending order found but order_id is None. Exciting")
                 sys.exit()
@@ -104,7 +109,7 @@ class DecisionMaker:
             self.pending_order_index = None
             self.order_state = OrderState.NONE
             self.logger.info("Order filled and handled successfully. Checking share count.")
-            self._check_share_count()
+            # self._check_share_count()
 
             profits['symbol'] = self.csv_service.ticker
             profits['timestamp'] = dt.now(timezone.utc).isoformat()
@@ -128,7 +133,7 @@ class DecisionMaker:
             self.order_state = OrderState.NONE
 
             self.logger.info("Checking share count after order reset.")
-            self._check_share_count()
+            # self._check_share_count()
 
         elif status in (
             OrderStatus.ACCEPTED,
@@ -373,6 +378,14 @@ class DecisionMaker:
         # Check to see if we need to chase lines
         if self.csv_service.is_chasable_lines(current_price):
             self.csv_service.chase_price({"current_price":current_price})
+            return
+        
+        # Check if we need to trigger a manual order update
+        now = time.time()
+        # Check if it's been at least 1 min since the last manual update
+        if self.pending_order and (now - self.last_manual_update_time) > 60:
+            self.logger.info("Triggering manual order update due to inactivity.")
+            self._trigger_manual_order_update()
 
     def consume_actions(self):
         if self.publisher is None:
